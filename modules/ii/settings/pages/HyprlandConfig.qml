@@ -576,6 +576,7 @@ f:close()
                                 anchors { left: parent.left; right: parent.right }
                                 spacing: 2
 
+                                // Common options (all devices)
                                 GroupedList {
                                     ConfigSpinBox {
                                         icon: "speed"
@@ -608,19 +609,6 @@ f:close()
                                     }
 
                                     ConfigSwitch {
-                                        buttonIcon: "do_not_disturb_on"
-                                        text: Translation.tr("Force no acceleration")
-                                        visible: !deviceCard.isTouchpad
-                                        checked: deviceCard.devForceNoAccel
-                                        onCheckedChanged: {
-                                            if (!deviceCard.loaded) return
-                                            if (checked === deviceCard.devForceNoAccel) return
-                                            deviceCard.devForceNoAccel = checked
-                                            HyprlandConfig.setDevice(deviceCard.name, { force_no_accel: checked ? "true" : "false" })
-                                        }
-                                    }
-
-                                    ConfigSwitch {
                                         buttonIcon: "swap_vert"
                                         text: Translation.tr("Natural scroll")
                                         checked: deviceCard.devNaturalScroll
@@ -643,21 +631,40 @@ f:close()
                                             HyprlandConfig.setDevice(deviceCard.name, { left_handed: checked ? "true" : "false" })
                                         }
                                     }
+                                }
 
+                                // Mouse-only options
+                                GroupedList {
+                                    visible: !deviceCard.isTouchpad
+                                    ConfigSwitch {
+                                        buttonIcon: "do_not_disturb_on"
+                                        text: Translation.tr("Force no acceleration")
+                                        checked: deviceCard.devForceNoAccel
+                                        onCheckedChanged: {
+                                            if (!deviceCard.loaded) return
+                                            if (checked === deviceCard.devForceNoAccel) return
+                                            deviceCard.devForceNoAccel = checked
+                                            HyprlandConfig.setDevice(deviceCard.name, { force_no_accel: checked ? "true" : "false" })
+                                        }
+                                    }
+                                }
+
+                                // Touchpad-only options
+                                GroupedList {
+                                    visible: deviceCard.isTouchpad
                                     ConfigSwitch {
                                         buttonIcon: "touch_app"
                                         text: Translation.tr("Tap to click")
-                                        visible: deviceCard.isTouchpad
                                         checked: deviceCard.devTapToClick
                                         onCheckedChanged: {
                                             if (!deviceCard.loaded) return
-                                            if (!deviceCard.isTouchpad) return
                                             if (checked === deviceCard.devTapToClick) return
                                             deviceCard.devTapToClick = checked
                                             HyprlandConfig.setDevice(deviceCard.name, { tap_to_click: checked ? "true" : "false" })
                                         }
                                     }
                                 }
+
                             }
                         }
                     }

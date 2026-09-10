@@ -20,30 +20,11 @@ Item {
         Repeater {
             model: root.items.length
             delegate: Rectangle {
-                id: rowRect
                 required property int index
-                readonly property Item child: root.items[index] ?? null
-                readonly property bool childVisible: child?.visible ?? true
-
-                // isFirst/isLast among the visible rows only
-                readonly property bool isFirst: {
-                    for (let i = 0; i < index; i++) {
-                        if (root.items[i]?.visible !== false) return false
-                    }
-                    return true
-                }
-                readonly property bool isLast: {
-                    for (let i = index + 1; i < root.items.length; i++) {
-                        if (root.items[i]?.visible !== false) return false
-                    }
-                    return true
-                }
-
+                readonly property bool isFirst: index === 0
+                readonly property bool isLast: index === root.items.length - 1
                 Layout.fillWidth: true
-                visible: childVisible
-                implicitHeight: childVisible
-                    ? (child?.implicitHeight ?? 0) + root.itemVerticalPadding
-                    : 0
+                implicitHeight: (root.items[index]?.implicitHeight ?? 0) + root.itemVerticalPadding
                 color: root.bgcolor
                 topLeftRadius:     isFirst ? root.bigRadius : root.smallRadius
                 topRightRadius:    isFirst ? root.bigRadius : root.smallRadius
@@ -51,6 +32,7 @@ Item {
                 bottomRightRadius: isLast  ? root.bigRadius : root.smallRadius
 
                 Component.onCompleted: {
+                    const child = root.items[index]
                     if (child) {
                         child.parent = contentArea
                         child.Layout.fillWidth = true
