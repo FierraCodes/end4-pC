@@ -2,6 +2,7 @@
 import argparse
 import os
 import re
+import subprocess
 import tempfile
 
 BOOL_KEYS = {
@@ -70,7 +71,7 @@ hl.animation({ leaf = "specialWorkspaceOut", enabled = true, speed = 4, bezier =
 
 def to_lua_value(key, value):
     if key in BOOL_KEYS:
-        return "false" if value == "0" else "true"
+        return "false" if str(value).lower() in ("0", "false") else "true"
     try:
         return str(int(value))
     except ValueError:
@@ -177,6 +178,7 @@ if __name__ == "__main__":
 
     if args.anim_preset:
         save_preset(os.path.expanduser(args.anim_file), args.anim_preset)
+        subprocess.run(["hyprctl", "reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     raw_sets   = args.set or []
     reset_keys = args.reset or []
@@ -189,5 +191,10 @@ if __name__ == "__main__":
 
     if set_pairs or reset_keys:
         edit_lua(os.path.expanduser(args.file), set_pairs, reset_keys)
+        for k, v in set_pairs:
+            lua_code = to_lua_line(k, v).strip()
+            subprocess.run(["hyprctl", "eval", lua_code], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if reset_keys:
+            subprocess.run(["hyprctl", "reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     elif not args.anim_preset:
         print("Error: specify --set, --reset, or --anim-preset")

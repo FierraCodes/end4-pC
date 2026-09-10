@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQml
 import QtQuick
+import Quickshell
 import Quickshell.Io
 import qs.services
 import "../"
@@ -10,7 +11,10 @@ NestableObject {
 
     property var monitors: []
 
-    Component.onCompleted: fetchProc.running = true
+    Component.onCompleted: {
+        if (WM.compositor === "hyprland")
+            fetchProc.running = true
+    }
 
     function updateMonitor(index, changes) {
         let m = root.monitors.slice()
@@ -22,11 +26,14 @@ NestableObject {
         if (m.disabled)
             return `hl.monitor({ output = "${m.name}", disabled = true })`
 
-        const pos = `${m.x}x${m.y}`
+        const pos = `${Math.max(0, m.x)}x${Math.max(0, m.y)}`
         let line = `hl.monitor({ output = "${m.name}", mode = "${m.currentMode}", position = "${pos}", scale = ${m.scale}`
 
         if (m.transform && m.transform !== 0)
             line += `, transform = ${m.transform}`
+
+        if (m.vrr !== undefined && m.vrr !== false)
+            line += `, vrr = ${m.vrr ? 1 : 0}`
 
         line += ` })`
         return line
@@ -52,15 +59,8 @@ NestableObject {
 
     function applyMonitor(m) {
         if (!m.name) return
-
-        const base = `${m.name},${m.currentMode},${m.x}x${m.y},${m.scale}`
-        applyProc.command = ["hyprctl", "keyword", "monitor",
-            m.disabled
-                ? `${m.name},disable`
-                : (m.transform && m.transform !== 0)
-                    ? `${base},transform,${m.transform}`
-                    : base]
-        applyProc.running = true
+        const luaLine = root._buildLuaLine(m)
+        Quickshell.execDetached(["hyprctl", "eval", luaLine])
     }
 
     function applyAndSave(index) {
@@ -82,22 +82,54 @@ NestableObject {
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
-                    root.monitors = JSON.parse(text).map(m => ({
-                        name:          m.name,
-                        description:   m.description,
-                        width:         m.width,
-                        height:        m.height,
-                        refreshRate:   m.refreshRate,
-                        x:             m.x,
-                        y:             m.y,
-                        scale:         m.scale,
-                        transform:     m.transform ?? 0,
-                        disabled:      m.disabled,
-                        availableModes: m.availableModes,
-                        currentMode:   `${m.width}x${m.height}@${m.refreshRate.toFixed(2)}Hz`
-                    }))
+                    root.monitors = JSON.parse(text).map(m => {
+                        let w = m.width ?? 0
+                        let h = m.height ?? 0
+                        let rr = m.refreshRate ?? 60
+                        let currMode = ""
+
+                        if (m.availableModes && m.availableModes.length > 0) {
+                            if (w === 0 || h === 0) {
+                                const first = m.availableModes[0]
+                                const parts = first.match(/(\d+)x(\d+)@([\d.]+)Hz/)
+                                if (parts) {
+                                    w = parseInt(parts[1])
+                                    h = parseInt(parts[2])
+                                    rr = parseFloat(parts[3])
+                                }
+                                currMode = first
+                            } else {
+                                const formatted = `${w}x${h}@${rr.toFixed(2)}Hz`
+                                const matched = m.availableModes.find(mode => mode === formatted)
+                                currMode = matched ?? formatted
+                            }
+                        } else {
+                            if (w === 0 || h === 0) {
+                                w = 1920
+                                h = 1080
+                                rr = 60
+                            }
+                            currMode = `${w}x${h}@${rr.toFixed(2)}Hz`
+                        }
+
+                        return {
+                            name:          m.name,
+                            description:   m.description ?? [m.make, m.model].filter(s => s && s !== "Unknown").join(" "),
+                            width:         w,
+                            height:        h,
+                            refreshRate:   rr,
+                            x:             Math.max(0, m.x ?? 0),
+                            y:             Math.max(0, m.y ?? 0),
+                            scale:         m.scale ?? 1.0,
+                            transform:     m.transform ?? 0,
+                            disabled:      m.disabled ?? false,
+                            vrr:           m.vrr ?? false,
+                            availableModes: m.availableModes ?? [],
+                            currentMode:   currMode
+                        }
+                    })
                 } catch(e) {
-                    console.log("[MonitorConfig] Error parseando JSON:", e)
+                    console.log("[MonitorConfig] Error parsing JSON:", e)
                 }
             }
         }

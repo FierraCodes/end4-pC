@@ -36,32 +36,10 @@ ContentPage {
         }
     }
 
-    Component.onCompleted: {
-        const h = Config.options.hyprland
-        HyprlandConfig.setMany({
-            "decoration:rounding":                  h.decoration.rounding,
-            "decoration:blur:enabled":              h.decoration.blur.enabled ? 1 : 0,
-            "decoration:blur:size":                 h.decoration.blur.size,
-            "decoration:blur:passes":               h.decoration.blur.passes,
-            "decoration:active_opacity":            h.decoration.activeOpacity,
-            "decoration:inactive_opacity":          h.decoration.inactiveOpacity,
-            "general:border_size":                  h.general.borderSize,
-            "general:gaps_in":                      h.general.gapsIn,
-            "general:gaps_out":                     h.general.gapsOut,
-            "general:layout":                       h.general.layout,
-            "animations:enabled":                   h.animations.enable ? 1 : 0,
-            "input:kb_layout":                      h.input.kbLayout,
-            "input:numlock_by_default":             h.input.numlock ? 1 : 0,
-            "input:repeat_delay":                   h.input.repeatDelay,
-            "input:repeat_rate":                    h.input.repeatRate,
-            "input:follow_mouse":                   h.input.followMouse,
-            "input:touchpad:natural_scroll":        h.input.touchpad.naturalScroll ? 1 : 0,
-            "input:touchpad:disable_while_typing":  h.input.touchpad.disableWhileTyping ? 1 : 0,
-            "input:touchpad:clickfinger_behavior":  h.input.touchpad.clickfingerBehavior ? 1 : 0,
-            "input:touchpad:scroll_factor":         h.input.touchpad.scrollFactor
-        })
-    }
     MonitorConfigOption { id: monitorConfig }
+
+    readonly property int selectedIndex: Math.min(monitorCanvas.selectedIndex, Math.max(0, monitorConfig.monitors.length - 1))
+    readonly property var currentMon: monitorConfig.monitors[selectedIndex]
 
     ColumnLayout {
         id: mainLayout
@@ -84,17 +62,17 @@ ContentPage {
 
             ContentSubsection {
                 Layout.topMargin: 10
-                title: (monitorConfig.monitors[monitorCanvas.selectedIndex]?.name ?? "")
+                title: (page.currentMon?.name ?? "")
                     + " · "
-                    + (monitorConfig.monitors[monitorCanvas.selectedIndex]?.description ?? "")
+                    + (page.currentMon?.description ?? "")
 
                 GroupedList {
                     ConfigSwitch {
                         buttonIcon: "tv_off"
                         text: Translation.tr("Enabled")
-                        checked: !(monitorConfig.monitors[monitorCanvas.selectedIndex]?.disabled ?? false)
+                        checked: !(page.currentMon?.disabled ?? false)
                         onCheckedChanged: {
-                            if (checked === !(monitorConfig.monitors[monitorCanvas.selectedIndex]?.disabled ?? false)) return
+                            if (checked === !(page.currentMon?.disabled ?? false)) return
                             monitorConfig.updateMonitor(monitorCanvas.selectedIndex, { disabled: !checked })
                             monitorConfig.applyAndSave(monitorCanvas.selectedIndex)
                         }
@@ -105,26 +83,28 @@ ContentPage {
                         buttonIcon: "aspect_ratio"
                         text: Translation.tr("Resolution & Refresh Rate")
                         textRole: "display"
-                        model: (monitorConfig.monitors[monitorCanvas.selectedIndex]?.availableModes ?? [])
+                        model: (page.currentMon?.availableModes ?? [])
                             .map(mode => ({ display: mode, value: mode }))
-                        currentValue: monitorConfig.monitors[monitorCanvas.selectedIndex]?.currentMode ?? ""
+                        currentValue: page.currentMon?.currentMode ?? ""
                         onSelected: newValue => {
                             const mode = newValue
                             const parts = mode.match(/(\d+)x(\d+)@([\d.]+)Hz/)
-                            monitorConfig.updateMonitor(monitorCanvas.selectedIndex, {
-                                currentMode: mode,
-                                width: parseInt(parts[1]),
-                                height: parseInt(parts[2]),
-                                refreshRate: parseFloat(parts[3])
-                            })
-                            monitorConfig.applyAndSave(monitorCanvas.selectedIndex)
+                            if (parts) {
+                                monitorConfig.updateMonitor(monitorCanvas.selectedIndex, {
+                                    currentMode: mode,
+                                    width: parseInt(parts[1]),
+                                    height: parseInt(parts[2]),
+                                    refreshRate: parseFloat(parts[3])
+                                })
+                                monitorConfig.applyAndSave(monitorCanvas.selectedIndex)
+                            }
                         }
                     }
 
                     ConfigSelectionArray {
                         text: Translation.tr("Orientation")
                         icon: "mobile_rotate"
-                        currentValue: monitorConfig.monitors[monitorCanvas.selectedIndex]?.transform ?? 0
+                        currentValue: page.currentMon?.transform ?? 0
                         onSelected: newValue => {
                             monitorConfig.updateMonitor(monitorCanvas.selectedIndex, { transform: newValue })
                             monitorConfig.applyAndSave(monitorCanvas.selectedIndex)
@@ -136,15 +116,26 @@ ContentPage {
                             { displayName: "270°",                   icon: "rotate_90_degrees_ccw", value: 3 },
                         ]
                     }
+
+                    ConfigSwitch {
+                        buttonIcon: "autoplay"
+                        text: Translation.tr("Variable refresh rate (VRR)")
+                        checked: page.currentMon?.vrr ?? false
+                        onCheckedChanged: {
+                            if (checked === (page.currentMon?.vrr ?? false)) return
+                            monitorConfig.updateMonitor(monitorCanvas.selectedIndex, { vrr: checked })
+                            monitorConfig.applyAndSave(monitorCanvas.selectedIndex)
+                        }
+                    }
     
                     ConfigSpinBox {
                         icon: "zoom_in"
                         text: Translation.tr("Scale")
-                        value: Math.round((monitorConfig.monitors[monitorCanvas.selectedIndex]?.scale ?? 1.0) * 100)
+                        value: Math.round((page.currentMon?.scale ?? 1.0) * 100)
                         from: 50; to: 300; stepSize: 25
                         onValueChanged: {
                             const newVal = value / 100.0
-                            if (newVal === (monitorConfig.monitors[monitorCanvas.selectedIndex]?.scale ?? 1.0)) return
+                            if (newVal === (page.currentMon?.scale ?? 1.0)) return
                             monitorConfig.updateMonitor(monitorCanvas.selectedIndex, { scale: newVal })
                             monitorConfig.applyAndSave(monitorCanvas.selectedIndex)
                         }
@@ -153,10 +144,10 @@ ContentPage {
                     ConfigSpinBox {
                         icon: "swap_horiz"
                         text: Translation.tr("Position X")
-                        value: monitorConfig.monitors[monitorCanvas.selectedIndex]?.x ?? 0
-                        from: 0; to: 7680; stepSize: 1
+                        value: page.currentMon?.x ?? 0
+                        from: 0; to: 7680; stepSize: 10
                         onValueChanged: {
-                            if (value === (monitorConfig.monitors[monitorCanvas.selectedIndex]?.x ?? 0)) return
+                            if (value === (page.currentMon?.x ?? 0)) return
                             monitorConfig.updateMonitor(monitorCanvas.selectedIndex, { x: value })
                             monitorConfig.applyAndSave(monitorCanvas.selectedIndex)
                         }
@@ -165,10 +156,10 @@ ContentPage {
                     ConfigSpinBox {
                         icon: "swap_vert"
                         text: Translation.tr("Position Y")
-                        value: monitorConfig.monitors[monitorCanvas.selectedIndex]?.y ?? 0
-                        from: 0; to: 4320; stepSize: 1
+                        value: page.currentMon?.y ?? 0
+                        from: 0; to: 4320; stepSize: 10
                         onValueChanged: {
-                            if (value === (monitorConfig.monitors[monitorCanvas.selectedIndex]?.y ?? 0)) return
+                            if (value === (page.currentMon?.y ?? 0)) return
                             monitorConfig.updateMonitor(monitorCanvas.selectedIndex, { y: value })
                             monitorConfig.applyAndSave(monitorCanvas.selectedIndex)
                         }
@@ -388,6 +379,29 @@ ContentPage {
                     }
                 }
 
+                ConfigSwitch {
+                    buttonIcon: "ev_shadow"
+                    text: Translation.tr("Shadows")
+                    checked: Config.options.hyprland.decoration.shadow.enabled
+                    onCheckedChanged: {
+                        if (checked === Config.options.hyprland.decoration.shadow.enabled) return
+                        Config.options.hyprland.decoration.shadow.enabled = checked
+                        HyprlandConfig.set("decoration:shadow:enabled", checked ? 1 : 0)
+                    }
+                }
+
+                ConfigSpinBox {
+                    icon: "blur_linear"
+                    text: Translation.tr("Shadow Range")
+                    value: Config.options.hyprland.decoration.shadow.range
+                    from: 1; to: 50; stepSize: 1
+                    onValueChanged: {
+                        if (value === Config.options.hyprland.decoration.shadow.range) return
+                        Config.options.hyprland.decoration.shadow.range = value
+                        HyprlandConfig.set("decoration:shadow:range", value)
+                    }
+                }
+
                 ConfigSpinBox {
                     icon: "border_outer"
                     text: Translation.tr("Border Size")
@@ -452,6 +466,42 @@ ContentPage {
             }
         }
 
+        // Cursor
+        ContentSection {
+            icon: "mouse"
+            shape: MaterialShape.Shape.Arrow
+            title: Translation.tr("Cursor")
+            GroupedList {
+                ConfigComboBox {
+                    buttonIcon: "mouse"
+                    fieldWidth: 70
+                    text: Translation.tr("Cursor theme")
+                    model: [{ displayName: Translation.tr("Default"), value: "" }]
+                        .concat(SystemTheming.cursorThemes.map(t => ({ displayName: t, value: t })))
+                    currentValue: SystemTheming.currentCursorTheme
+                    onSelected: newValue => SystemTheming.applyCursorTheme(newValue, SystemTheming.currentCursorSize)
+                }
+
+                ConfigSpinBox {
+                    id: cursorSizeSpin
+                    icon: "zoom_in"
+                    text: Translation.tr("Cursor size")
+                    value: SystemTheming.currentCursorSize
+                    from: 16; to: 64; stepSize: 2
+                    onValueChanged: {
+                        if (value === SystemTheming.currentCursorSize) return
+                        cursorSizeApplyTimer.restart()
+                    }
+                    Timer {
+                        id: cursorSizeApplyTimer
+                        interval: 500
+                        repeat: false
+                        onTriggered: SystemTheming.applyCursorTheme(SystemTheming.currentCursorTheme, cursorSizeSpin.value)
+                    }
+                }
+            }
+        }
+
         // Autostart Apps
         ContentSection {
             icon: "app_registration"
@@ -484,12 +534,7 @@ ContentPage {
                     currentValue: Config.options.hyprland.animations.animation
                     onSelected: newValue => {
                         Config.options.hyprland.animations.animation = newValue
-                        saveAnimProc.command = [
-                            "python3",
-                            HyprlandConfig.configuratorScriptPath,
-                            "--anim-preset", newValue
-                        ]
-                        saveAnimProc.running = true
+                        HyprlandConfig.setAnimPreset(newValue)
                     }
                     options: [
                         { displayName: Translation.tr("Elastic"),   icon: "move_selection_right", value: "fast"   },
@@ -527,15 +572,6 @@ ContentPage {
                         onTriggered: copySourceButton.justCopied = false
                     }
                 }
-            }
-
-            Process {
-                id: saveAnimProc
-                onRunningChanged: if (!running) reloadAnimProc.running = true
-            }
-            Process {
-                id: reloadAnimProc
-                command: ["hyprctl", "reload"]
             }
         }
     }

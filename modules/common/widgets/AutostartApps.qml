@@ -69,7 +69,7 @@ ColumnLayout {
             colBackgroundHover: ColorUtils.transparentize(Appearance.colors.colPrimary, 0.6)
             colRipple: ColorUtils.transparentize(Appearance.colors.colPrimary, 0.5)
             onClicked: {
-                Quickshell.execDetached(["python3", `${Directories.scriptPath}/hyprland/autostart.py`])
+                Quickshell.execDetached(["python3", `${Directories.scriptPath}/hyprland/autostart.py`, "--force"])
             }
             contentItem: MaterialSymbol {
                 anchors.centerIn: parent
@@ -213,7 +213,7 @@ ColumnLayout {
 
                 Timer {
                     id: debounceTimer
-                    interval: 3000
+                    interval: 500
                     repeat: false
                     onTriggered: {
                         root.updateEntry(entryRow.index, "cmd", cmdArea.text)
