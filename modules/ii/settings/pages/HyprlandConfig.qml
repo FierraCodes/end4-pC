@@ -537,7 +537,7 @@ f:close()
                                 spacing: 10
 
                                 MaterialSymbol {
-                                    text: deviceCard.isTouchpad ? "touchpad" : "mouse"
+                                    text: deviceCard.isTouchpad ? "trackpad_input" : "mouse"
                                     iconSize: Appearance.font.pixelSize.larger
                                     color: Appearance.colors.colOnSecondaryContainer
                                 }
@@ -610,6 +610,7 @@ f:close()
                                     ConfigSwitch {
                                         buttonIcon: "do_not_disturb_on"
                                         text: Translation.tr("Force no acceleration")
+                                        visible: !deviceCard.isTouchpad
                                         checked: deviceCard.devForceNoAccel
                                         onCheckedChanged: {
                                             if (!deviceCard.loaded) return
