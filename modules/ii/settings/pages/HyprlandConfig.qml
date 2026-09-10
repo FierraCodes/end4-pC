@@ -413,7 +413,7 @@ ContentPage {
             shape: MaterialShape.Shape.Hexagon
             title: Translation.tr("Devices")
 
-            // Fetch device list once and refresh on reload
+            // Fetch device list and refresh on reload or hotplug
             Process {
                 id: devicesProc
                 command: ["hyprctl", "devices", "-j"]
@@ -422,14 +422,27 @@ ContentPage {
                     onStreamFinished: {
                         try {
                             const data = JSON.parse(text)
-                            const mice = (data.mice || [])
+                            const freshList = (data.mice || [])
                                 .filter(d => !d.name.startsWith("ydotoold") && !d.name.startsWith("hl-virtual"))
                                 .map(d => ({
                                     name: d.name,
                                     isTouchpad: d.name.includes("touchpad")
                                 }))
-                            deviceListModel.clear()
-                            for (const dev of mice) deviceListModel.append(dev)
+
+                            // Add newly connected devices (preserves existing card state)
+                            for (const dev of freshList) {
+                                let exists = false
+                                for (let i = 0; i < deviceListModel.count; i++) {
+                                    if (deviceListModel.get(i).name === dev.name) { exists = true; break }
+                                }
+                                if (!exists) deviceListModel.append(dev)
+                            }
+
+                            // Remove disconnected devices
+                            for (let i = deviceListModel.count - 1; i >= 0; i--) {
+                                const gone = !freshList.some(d => d.name === deviceListModel.get(i).name)
+                                if (gone) deviceListModel.remove(i)
+                            }
                         } catch (e) {
                             console.log("[Devices] Failed to parse hyprctl devices -j:", e)
                         }
@@ -437,10 +450,12 @@ ContentPage {
                 }
             }
 
+            // Refresh on Hyprland reload (catches hotplug events that trigger reload)
             Connections {
                 target: HyprlandConfig
                 function onReloaded() { devicesProc.running = true }
             }
+
 
             ListModel { id: deviceListModel }
 
