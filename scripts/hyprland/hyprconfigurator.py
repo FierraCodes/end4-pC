@@ -28,7 +28,6 @@ DEVICE_BOOL_FIELDS = {
     "tap_to_click",
     "disable_while_typing",
     "clickfinger_behavior",
-    "force_no_accel",
 }
 
 
