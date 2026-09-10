@@ -21,6 +21,25 @@ BOOL_KEYS = {
     "input:touchpad:tap-to-click",
 }
 
+# Fields that are booleans when used inside hl.device(...)
+DEVICE_BOOL_FIELDS = {
+    "natural_scroll",
+    "left_handed",
+    "tap_to_click",
+    "disable_while_typing",
+    "clickfinger_behavior",
+    "force_no_accel",
+}
+
+
+def _parse_device_key(key):
+    """Return (device_name, field) if key is 'device[name]:field', else None."""
+    m = re.match(r'^device\[(.+?)\]:(.+)$', key)
+    if m:
+        return m.group(1), m.group(2)
+    return None
+
+
 ANIM_PRESETS = {
     "fast": """\
 hl.curve("pc_wobble", { type = "bezier", points = { {0.15, 1.15}, {0.35, 1.0}  } })
@@ -75,8 +94,18 @@ hl.animation({ leaf = "specialWorkspaceOut", enabled = true, speed = 4, bezier =
 }
 
 
-def to_lua_value(key, value):
-    if key in BOOL_KEYS:
+def to_lua_value(key, value, *, is_device_field=False):
+    """Convert a Python value to a Lua literal string.
+
+    For device fields (is_device_field=True), boolean detection uses
+    DEVICE_BOOL_FIELDS instead of BOOL_KEYS.
+    """
+    dev = _parse_device_key(key)
+    if dev:
+        field = dev[1]
+        if field in DEVICE_BOOL_FIELDS:
+            return "false" if str(value).lower() in ("0", "false") else "true"
+    elif key in BOOL_KEYS:
         return "false" if str(value).lower() in ("0", "false") else "true"
     try:
         return str(int(value))
@@ -90,6 +119,17 @@ def to_lua_value(key, value):
 
 
 def to_lua_line(key, value):
+    """Generate a Lua config line for the given key/value pair.
+
+    For device[name]:field keys, emits an hl.device({...}) block.
+    For normal keys, emits an hl.config({...}) block.
+    """
+    dev = _parse_device_key(key)
+    if dev:
+        device_name, field = dev
+        val = to_lua_value(key, value)
+        return f'hl.device({{ name = "{device_name}", {field} = {val} }})\n'
+
     parts = key.replace(":", ".").split(".")
     val = to_lua_value(key, value)
     inner = f"{{ {parts[-1]} = {val} }}"
@@ -99,6 +139,16 @@ def to_lua_line(key, value):
 
 
 def make_marker(key):
+    """Return a substring that uniquely identifies the line for a key.
+
+    For device[name]:field keys, matches the hl.device(... name = "...", field =
+    pattern so we can update/remove it in the overrides file.
+    """
+    dev = _parse_device_key(key)
+    if dev:
+        device_name, field = dev
+        return f'name = "{device_name}", {field} ='
+
     parts = key.replace(":", ".").split(".")
 
     fragment = " = { ".join(parts[:-1])

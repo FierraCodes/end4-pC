@@ -407,6 +407,265 @@ ContentPage {
             }
         }
 
+        // Devices
+        ContentSection {
+            icon: "devices"
+            shape: MaterialShape.Shape.Hexagon
+            title: Translation.tr("Devices")
+
+            // Fetch device list once and refresh on reload
+            Process {
+                id: devicesProc
+                command: ["hyprctl", "devices", "-j"]
+                running: true
+                stdout: StdioCollector {
+                    onStreamFinished: {
+                        try {
+                            const data = JSON.parse(text)
+                            const mice = (data.mice || [])
+                                .filter(d => !d.name.startsWith("ydotoold") && !d.name.startsWith("hl-virtual"))
+                                .map(d => ({
+                                    name: d.name,
+                                    isTouchpad: d.name.includes("touchpad")
+                                }))
+                            deviceListModel.clear()
+                            for (const dev of mice) deviceListModel.append(dev)
+                        } catch (e) {
+                            console.log("[Devices] Failed to parse hyprctl devices -j:", e)
+                        }
+                    }
+                }
+            }
+
+            Connections {
+                target: HyprlandConfig
+                function onReloaded() { devicesProc.running = true }
+            }
+
+            ListModel { id: deviceListModel }
+
+            Repeater {
+                model: deviceListModel
+                delegate: Item {
+                    id: deviceCard
+                    required property string name
+                    required property bool isTouchpad
+                    required property int index
+
+                    Layout.fillWidth: true
+                    implicitHeight: cardColumn.implicitHeight
+
+                    // Per-device state (initialized from live Hyprland config via hyprctl eval)
+                    property real devSensitivity: 0.0
+                    property string devAccelProfile: "adaptive"
+                    property bool devNaturalScroll: false
+                    property bool devTapToClick: true
+                    property bool devForceNoAccel: false
+                    property bool devLeftHanded: false
+                    property bool collapsed: true
+                    property bool loaded: false
+
+                    Component.onCompleted: fetchDeviceState()
+
+                    function fetchDeviceState() {
+                        const luaExpr = `
+local name = "${deviceCard.name}"
+local f = io.open("/tmp/qs_dev_" .. name:gsub("[^%w]","_") .. ".json", "w")
+local ok, res = pcall(function()
+  return hl.get_config("device:" .. name .. ":sensitivity")
+end)
+local sens = ok and res or 0.0
+local ok2, res2 = pcall(function()
+  return hl.get_config("device:" .. name .. ":accel_profile")
+end)
+local ap = ok2 and res2 or "adaptive"
+f:write('{"sensitivity":' .. tostring(sens) .. ',"accel_profile":"' .. tostring(ap) .. '"}')
+f:close()
+`
+                        // Use hyprctl eval to read current device state
+                        fetchProc.command = ["hyprctl", "eval", luaExpr.trim()]
+                        fetchProc.running = true
+                    }
+
+                    Process {
+                        id: fetchProc
+                        onExited: {
+                            // Read the written JSON file
+                            const fname = "/tmp/qs_dev_" + deviceCard.name.replace(/[^\w]/g, "_") + ".json"
+                            readFileProc.command = ["cat", fname]
+                            readFileProc.running = true
+                        }
+                    }
+
+                    Process {
+                        id: readFileProc
+                        stdout: StdioCollector {
+                            onStreamFinished: {
+                                try {
+                                    const d = JSON.parse(text)
+                                    deviceCard.devSensitivity = d.sensitivity ?? 0.0
+                                    deviceCard.devAccelProfile = d.accel_profile ?? "adaptive"
+                                } catch (e) {}
+                                deviceCard.loaded = true
+                            }
+                        }
+                    }
+
+                    ColumnLayout {
+                        id: cardColumn
+                        anchors { left: parent.left; right: parent.right }
+                        spacing: 2
+
+                        // Collapsible header
+                        RippleButton {
+                            Layout.fillWidth: true
+                            implicitHeight: 44
+                            buttonRadius: deviceCard.collapsed
+                                ? Appearance.rounding.normal
+                                : Appearance.rounding.unsharpenmore
+                            colBackground: Appearance.colors.colLayer1
+                            colBackgroundHover: Appearance.colors.colLayer1Hover
+                            colRipple: Appearance.colors.colLayer1Active
+                            onClicked: deviceCard.collapsed = !deviceCard.collapsed
+
+                            Behavior on buttonRadius {
+                                NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+                            }
+
+                            contentItem: RowLayout {
+                                anchors { fill: parent; leftMargin: 12; rightMargin: 8 }
+                                spacing: 10
+
+                                MaterialSymbol {
+                                    text: deviceCard.isTouchpad ? "touchpad" : "mouse"
+                                    iconSize: Appearance.font.pixelSize.larger
+                                    color: Appearance.colors.colOnSecondaryContainer
+                                }
+                                StyledText {
+                                    Layout.fillWidth: true
+                                    text: deviceCard.name
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                    color: Appearance.colors.colOnSecondaryContainer
+                                    elide: Text.ElideRight
+                                }
+                                MaterialSymbol {
+                                    text: deviceCard.collapsed ? "expand_more" : "expand_less"
+                                    iconSize: Appearance.font.pixelSize.larger
+                                    color: Appearance.colors.colSubtext
+                                    Behavior on text {
+                                        // No text animation – chevron flips via binding above
+                                    }
+                                }
+                            }
+                        }
+
+                        // Collapsible body
+                        Item {
+                            id: collapseWrapper
+                            Layout.fillWidth: true
+                            visible: implicitHeight > 0
+                            implicitHeight: deviceCard.collapsed ? 0 : bodyColumn.implicitHeight
+                            clip: true
+
+                            Behavior on implicitHeight {
+                                animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
+                            }
+
+                            ColumnLayout {
+                                id: bodyColumn
+                                anchors { left: parent.left; right: parent.right }
+                                spacing: 2
+
+                                GroupedList {
+                                    ConfigSpinBox {
+                                        icon: "speed"
+                                        text: Translation.tr("Sensitivity")
+                                        value: Math.round((deviceCard.devSensitivity) * 100)
+                                        from: -100; to: 100; stepSize: 5
+                                        onValueChanged: {
+                                            if (!deviceCard.loaded) return
+                                            const newVal = value / 100.0
+                                            if (Math.abs(newVal - deviceCard.devSensitivity) < 0.001) return
+                                            deviceCard.devSensitivity = newVal
+                                            HyprlandConfig.setDevice(deviceCard.name, { sensitivity: newVal })
+                                        }
+                                    }
+
+                                    ConfigSelectionArray {
+                                        text: Translation.tr("Accel profile")
+                                        icon: "near_me"
+                                        currentValue: deviceCard.devAccelProfile
+                                        onSelected: newValue => {
+                                            if (!deviceCard.loaded) return
+                                            deviceCard.devAccelProfile = newValue
+                                            HyprlandConfig.setDevice(deviceCard.name, { accel_profile: newValue })
+                                        }
+                                        options: [
+                                            { displayName: Translation.tr("Adaptive"), icon: "speed",         value: "adaptive" },
+                                            { displayName: Translation.tr("Flat"),     icon: "linear_scale",  value: "flat"     },
+                                            { displayName: Translation.tr("Custom"),   icon: "tune",          value: "custom"   },
+                                        ]
+                                    }
+
+                                    ConfigSwitch {
+                                        buttonIcon: "do_not_disturb_on"
+                                        text: Translation.tr("Force no acceleration")
+                                        checked: deviceCard.devForceNoAccel
+                                        onCheckedChanged: {
+                                            if (!deviceCard.loaded) return
+                                            if (checked === deviceCard.devForceNoAccel) return
+                                            deviceCard.devForceNoAccel = checked
+                                            HyprlandConfig.setDevice(deviceCard.name, { force_no_accel: checked ? "true" : "false" })
+                                        }
+                                    }
+
+                                    ConfigSwitch {
+                                        buttonIcon: "swap_vert"
+                                        text: Translation.tr("Natural scroll")
+                                        checked: deviceCard.devNaturalScroll
+                                        onCheckedChanged: {
+                                            if (!deviceCard.loaded) return
+                                            if (checked === deviceCard.devNaturalScroll) return
+                                            deviceCard.devNaturalScroll = checked
+                                            HyprlandConfig.setDevice(deviceCard.name, { natural_scroll: checked ? "true" : "false" })
+                                        }
+                                    }
+
+                                    ConfigSwitch {
+                                        buttonIcon: "front_hand"
+                                        text: Translation.tr("Left handed mode")
+                                        checked: deviceCard.devLeftHanded
+                                        onCheckedChanged: {
+                                            if (!deviceCard.loaded) return
+                                            if (checked === deviceCard.devLeftHanded) return
+                                            deviceCard.devLeftHanded = checked
+                                            HyprlandConfig.setDevice(deviceCard.name, { left_handed: checked ? "true" : "false" })
+                                        }
+                                    }
+
+                                    ConfigSwitch {
+                                        buttonIcon: "touch_app"
+                                        text: Translation.tr("Tap to click")
+                                        visible: deviceCard.isTouchpad
+                                        checked: deviceCard.devTapToClick
+                                        onCheckedChanged: {
+                                            if (!deviceCard.loaded) return
+                                            if (!deviceCard.isTouchpad) return
+                                            if (checked === deviceCard.devTapToClick) return
+                                            deviceCard.devTapToClick = checked
+                                            HyprlandConfig.setDevice(deviceCard.name, { tap_to_click: checked ? "true" : "false" })
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+
+
         // Visual & Aesthetics
         ContentSection {
             icon: "deblur"

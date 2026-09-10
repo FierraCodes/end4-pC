@@ -46,6 +46,29 @@ Singleton {
         Quickshell.execDetached(args)
     }
 
+    /** Apply one or more fields to a specific input device by name.
+     *  entries: { field: value, ... }  e.g. { sensitivity: -0.5, accel_profile: "flat" }
+     *  Keys are saved as  device[<name>]:<field>  in shellOverrides/main.lua
+     *  and the configurator emits  hl.device({ name = "...", <field> = <val> })  lines.
+     */
+    function setDevice(deviceName: string, entries: var) {
+        let args = ["python3", root.configuratorScriptPath, "--file", root.shellOverridesPath]
+        for (let field in entries) {
+            const key = `device[${deviceName}]:${field}`
+            args.push("--set", key, String(entries[field]))
+        }
+        Quickshell.execDetached(args)
+    }
+
+    /** Reset all per-device overrides for a given device name. */
+    function resetDevice(deviceName: string, fields: list<string>) {
+        let args = ["python3", root.configuratorScriptPath, "--file", root.shellOverridesPath]
+        for (let i = 0; i < fields.length; i++) {
+            args.push("--reset", `device[${deviceName}]:${fields[i]}`)
+        }
+        Quickshell.execDetached(args)
+    }
+
     function setAnimPreset(preset: string) {
         Quickshell.execDetached([
             "python3", root.configuratorScriptPath,
