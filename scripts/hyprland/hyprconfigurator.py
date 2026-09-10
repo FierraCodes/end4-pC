@@ -10,9 +10,15 @@ BOOL_KEYS = {
     "decoration:shadow:enabled",
     "animations:enabled",
     "input:numlock_by_default",
+    "input:force_no_accel",
+    "input:left_handed",
+    "input:natural_scroll",
+    "input:mouse:natural_scroll",
     "input:touchpad:natural_scroll",
     "input:touchpad:disable_while_typing",
     "input:touchpad:clickfinger_behavior",
+    "input:touchpad:tap_to_click",
+    "input:touchpad:tap-to-click",
 }
 
 ANIM_PRESETS = {

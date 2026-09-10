@@ -274,8 +274,90 @@ ContentPage {
             }
 
             ContentSubsection {
+                title: Translation.tr("Pointer & Acceleration")
+                GroupedList {
+                    ConfigSpinBox {
+                        icon: "speed"
+                        text: Translation.tr("Pointer speed (sensitivity)")
+                        value: Math.round((Config.options.hyprland.input.sensitivity ?? 0.0) * 100)
+                        from: -100; to: 100; stepSize: 5
+                        onValueChanged: {
+                            const newVal = value / 100.0
+                            if (newVal === (Config.options.hyprland.input.sensitivity ?? 0.0)) return
+                            Config.options.hyprland.input.sensitivity = newVal
+                            HyprlandConfig.set("input:sensitivity", newVal)
+                        }
+                    }
+
+                    ConfigSelectionArray {
+                        text: Translation.tr("Acceleration profile")
+                        icon: "near_me"
+                        currentValue: Config.options.hyprland.input.accelProfile ?? "adaptive"
+                        onSelected: newValue => {
+                            Config.options.hyprland.input.accelProfile = newValue
+                            HyprlandConfig.set("input:accel_profile", newValue)
+                        }
+                        options: [
+                            { displayName: Translation.tr("Adaptive"), icon: "speed", value: "adaptive" },
+                            { displayName: Translation.tr("Flat (Linear)"), icon: "linear_scale", value: "flat" },
+                            { displayName: Translation.tr("Custom"), icon: "tune", value: "custom" },
+                        ]
+                    }
+
+                    ConfigSwitch {
+                        buttonIcon: "do_not_disturb_on"
+                        text: Translation.tr("Force no acceleration")
+                        checked: Config.options.hyprland.input.forceNoAccel ?? false
+                        onCheckedChanged: {
+                            if (checked === (Config.options.hyprland.input.forceNoAccel ?? false)) return
+                            Config.options.hyprland.input.forceNoAccel = checked
+                            HyprlandConfig.set("input:force_no_accel", checked ? 1 : 0)
+                        }
+                    }
+                }
+            }
+
+            ContentSubsection {
+                title: Translation.tr("Mouse")
+                GroupedList {
+                    ConfigSwitch {
+                        buttonIcon: "swap_vert"
+                        text: Translation.tr("Natural scroll")
+                        checked: Config.options.hyprland.input.mouse?.naturalScroll ?? false
+                        onCheckedChanged: {
+                            if (checked === (Config.options.hyprland.input.mouse?.naturalScroll ?? false)) return
+                            Config.options.hyprland.input.mouse.naturalScroll = checked
+                            HyprlandConfig.set("input:natural_scroll", checked ? 1 : 0)
+                        }
+                    }
+
+                    ConfigSwitch {
+                        buttonIcon: "front_hand"
+                        text: Translation.tr("Left handed mode")
+                        checked: Config.options.hyprland.input.mouse?.leftHanded ?? false
+                        onCheckedChanged: {
+                            if (checked === (Config.options.hyprland.input.mouse?.leftHanded ?? false)) return
+                            Config.options.hyprland.input.mouse.leftHanded = checked
+                            HyprlandConfig.set("input:left_handed", checked ? 1 : 0)
+                        }
+                    }
+                }
+            }
+
+            ContentSubsection {
                 title: Translation.tr("Touchpad")
                 GroupedList {
+                    ConfigSwitch {
+                        buttonIcon: "touch_app"
+                        text: Translation.tr("Tap to click")
+                        checked: Config.options.hyprland.input.touchpad.tapToClick ?? true
+                        onCheckedChanged: {
+                            if (checked === (Config.options.hyprland.input.touchpad.tapToClick ?? true)) return
+                            Config.options.hyprland.input.touchpad.tapToClick = checked
+                            HyprlandConfig.set("input:touchpad:tap_to_click", checked ? 1 : 0)
+                        }
+                    }
+
                     ConfigSwitch {
                         buttonIcon: "swap_vert"
                         text: Translation.tr("Natural scroll")
