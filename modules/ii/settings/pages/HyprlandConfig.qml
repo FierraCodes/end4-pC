@@ -475,7 +475,6 @@ ContentPage {
                     property string devAccelProfile: "adaptive"
                     property bool devNaturalScroll: false
                     property bool devTapToClick: true
-                    property bool devForceNoAccel: false
                     property bool devLeftHanded: false
                     property bool collapsed: true
                     property bool loaded: false
@@ -648,21 +647,6 @@ f:close()
                                     }
                                 }
 
-                                // Mouse-only options
-                                GroupedList {
-                                    visible: !deviceCard.isTouchpad
-                                    ConfigSwitch {
-                                        buttonIcon: "do_not_disturb_on"
-                                        text: Translation.tr("Force no acceleration")
-                                        checked: deviceCard.devForceNoAccel
-                                        onCheckedChanged: {
-                                            if (!deviceCard.loaded) return
-                                            if (checked === deviceCard.devForceNoAccel) return
-                                            deviceCard.devForceNoAccel = checked
-                                            HyprlandConfig.setDevice(deviceCard.name, { force_no_accel: checked ? "true" : "false" })
-                                        }
-                                    }
-                                }
 
                                 // Touchpad-only options
                                 GroupedList {
