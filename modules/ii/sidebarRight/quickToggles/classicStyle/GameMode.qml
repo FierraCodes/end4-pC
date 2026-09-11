@@ -20,9 +20,11 @@ QuickToggleButton {
     Process {
         id: fetchActiveState
         running: true
-        command: ["bash", "-c", `test "$(hyprctl getoption animations:enabled -j | jq ".int")" -ne 0`]
+        command: ["bash", "-c", `hyprctl getoption animations:enabled -j | jq -e '.bool == false' > /dev/null 2>&1`]
         onExited: (exitCode, exitStatus) => {
-            root.toggled = exitCode !== 0 // Inverted because enabled = nonzero exit
+            // exit 0 = animations disabled = game mode ON
+            // exit non-0 = animations enabled = game mode OFF
+            root.toggled = exitCode === 0
         }
     }
     StyledToolTip {
