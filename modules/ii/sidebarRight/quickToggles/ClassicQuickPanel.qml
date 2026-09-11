@@ -20,7 +20,7 @@ AbstractQuickPanel {
 
     readonly property list<string> availableToggleTypes: {
         const base = [
-            "network", "bluetooth", "idleInhibitor", "easyEffects", "nightLight",
+            "network", "vpn", "bluetooth", "idleInhibitor", "easyEffects", "nightLight",
             "darkMode", "cloudflareWarp", "gameMode", "screenSnip", "colorPicker",
             "onScreenKeyboard", "mic", "audio", "notifications", "powerProfile",
             "musicRecognition", "antiFlashbang"
@@ -30,6 +30,7 @@ AbstractQuickPanel {
 
     readonly property list<string> defaultToggles: [
         "network",
+        "vpn",
         "bluetooth",
         "nightLight",
         "gameMode",
@@ -78,6 +79,9 @@ AbstractQuickPanel {
             case "network":
                 root.openWifiDialog();
                 break;
+            case "vpn":
+                root.openVpnDialog();
+                break;
             case "bluetooth":
                 root.openBluetoothDialog();
                 break;
@@ -95,6 +99,7 @@ AbstractQuickPanel {
 
     // Toggle models
     Models.NetworkToggle { id: networkModel }
+    Models.VpnToggle { id: vpnModel }
     Models.BluetoothToggle { id: bluetoothModel }
     Models.NightLightToggle { id: nightLightModel }
     Models.GameModeToggle { id: gameModeModel }
@@ -115,6 +120,7 @@ AbstractQuickPanel {
     function getModelForType(type: string): var {
         switch (type) {
             case "network": return networkModel;
+            case "vpn": return vpnModel;
             case "bluetooth": return bluetoothModel;
             case "nightLight": return nightLightModel;
             case "gameMode": return gameModeModel;

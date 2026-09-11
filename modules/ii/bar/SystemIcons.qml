@@ -33,6 +33,7 @@ Item {
 
         Revealer {
             reveal: true
+            vertical: root.vertical
             MaterialSymbol {
                 text: Audio.sink?.audio?.muted ? "volume_off" : "volume_up"
                 iconSize: Appearance.font.pixelSize.larger
@@ -41,6 +42,7 @@ Item {
         }
         Revealer {
             reveal: Audio.source?.audio?.muted ?? false
+            vertical: root.vertical
             MaterialSymbol {
                 text: "mic_off"
                 iconSize: Appearance.font.pixelSize.larger
@@ -55,6 +57,15 @@ Item {
             text: Network.materialSymbol
             iconSize: Appearance.font.pixelSize.larger
             color: root.isMaterial ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer1
+        }
+        Revealer {
+            reveal: Vpn.isConnected
+            vertical: root.vertical
+            MaterialSymbol {
+                text: "vpn_key"
+                iconSize: Appearance.font.pixelSize.larger
+                color: root.isMaterial ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer1
+            }
         }
         MaterialSymbol {
             visible: BluetoothStatus.available
