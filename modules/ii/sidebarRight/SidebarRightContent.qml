@@ -244,11 +244,10 @@ Item {
 
                                 QuickToggleButton {
                                     toggled: root.editMode
-                                    visible: Config.options.sidebar.quickToggles.style === "android"
                                     buttonIcon: "edit"
                                     onClicked: root.editMode = !root.editMode
                                     StyledToolTip {
-                                        text: Translation.tr("Edit quick toggles") + (root.editMode ? Translation.tr("\nLMB to enable/disable\nRMB to toggle size\nScroll to swap position") : "")
+                                        text: Translation.tr("Edit quick toggles") + (root.editMode ? (Config.options.sidebar.quickToggles.style === "android" ? Translation.tr("\nLMB to enable/disable\nRMB to toggle size\nScroll to swap position") : Translation.tr("\nClick to add\nClick × to remove")) : "")
                                     }
                                 }
                                 QuickToggleButton {
@@ -294,7 +293,9 @@ Item {
 
             LoaderedQuickPanelImplementation {
                 styleName: "classic"
-                sourceComponent: ClassicQuickPanel {}
+                sourceComponent: ClassicQuickPanel {
+                    editMode: root.editMode
+                }
             }
 
             LoaderedQuickPanelImplementation {
@@ -503,11 +504,10 @@ Item {
 
             QuickToggleButton {
                 toggled: root.editMode
-                visible: Config.options.sidebar.quickToggles.style === "android"
                 buttonIcon: "edit"
                 onClicked: root.editMode = !root.editMode
                 StyledToolTip {
-                    text: Translation.tr("Edit quick toggles") + (root.editMode ? Translation.tr("\nLMB to enable/disable\nRMB to toggle size\nScroll to swap position") : "")
+                    text: Translation.tr("Edit quick toggles") + (root.editMode ? (Config.options.sidebar.quickToggles.style === "android" ? Translation.tr("\nLMB to enable/disable\nRMB to toggle size\nScroll to swap position") : Translation.tr("\nClick to add\nClick × to remove")) : "")
                 }
             }
             QuickToggleButton {

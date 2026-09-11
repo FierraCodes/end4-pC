@@ -740,6 +740,17 @@ Singleton {
 
                 property JsonObject quickToggles: JsonObject {
                     property string style: "android" // Options: classic, android
+                    property JsonObject classic: JsonObject {
+                        property list<string> toggles: [
+                            "network",
+                            "bluetooth",
+                            "nightLight",
+                            "gameMode",
+                            "idleInhibitor",
+                            "easyEffects",
+                            "cloudflareWarp"
+                        ]
+                    }
                     property JsonObject android: JsonObject {
                         property int columns: 5
                         property list<var> toggles: [
