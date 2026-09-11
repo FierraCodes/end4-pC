@@ -145,45 +145,38 @@ AbstractQuickPanel {
         if (!root.isDragging) return;
         root.ghostPos = root.mapFromItem(null, scenePos.x, scenePos.y);
 
+        // Only track WHERE the icon would drop — never mutate workingToggles here.
+        // Mutating the model destroys all Repeater delegates, killing the DragHandler grab.
         const localActive = activeGrid.mapFromItem(null, scenePos.x, scenePos.y);
         const isInsideGrid = (localActive.x >= 0 && localActive.x <= activeGrid.width &&
                               localActive.y >= 0 && localActive.y <= activeGrid.height);
 
-        if (!root.draggedIsUnused) {
-            if (isInsideGrid) {
-                const targetIdx = getGridIndexAt(localActive.x, localActive.y, root.workingToggles.length, root.activeColumns);
-                if (targetIdx !== -1 && targetIdx !== root.draggedIndex) {
-                    swapWorkingToggles(root.draggedIndex, targetIdx);
-                    root.draggedIndex = targetIdx;
-                }
-            }
+        if (isInsideGrid) {
+            const count = root.draggedIsUnused
+                ? root.workingToggles.length + 1
+                : root.workingToggles.length;
+            root.dropTargetIndex = getGridIndexAt(localActive.x, localActive.y, count, root.activeColumns);
         } else {
-            if (isInsideGrid) {
-                root.dropTargetIndex = getGridIndexAt(localActive.x, localActive.y, root.workingToggles.length + 1, root.activeColumns);
-            } else {
-                root.dropTargetIndex = -1;
-            }
+            root.dropTargetIndex = -1;
         }
     }
 
     function handleDragEnded(scenePos: point): void {
         if (!root.isDragging) return;
 
-        const localGroup = activeGroup.mapFromItem(null, scenePos.x, scenePos.y);
-        const isInsideActiveGroup = (localGroup.x >= -10 && localGroup.x <= activeGroup.width + 10 &&
-                                     localGroup.y >= -10 && localGroup.y <= activeGroup.height + 10);
-
-        if (!root.draggedIsUnused) {
-            if (root.editMode && (localGroup.y > activeGroup.height + 15 || localGroup.y < -30)) {
-                root.removeToggle(root.draggedType);
+        if (root.dropTargetIndex >= 0) {
+            if (root.draggedIsUnused) {
+                // Insert from unused panel into active at target position
+                root.insertToggleAt(root.draggedType, root.dropTargetIndex);
             } else {
-                root.saveToggles(root.workingToggles);
-            }
-        } else {
-            if (isInsideActiveGroup) {
-                const localActive = activeGrid.mapFromItem(null, scenePos.x, scenePos.y);
-                const targetIdx = getGridIndexAt(localActive.x, localActive.y, root.workingToggles.length + 1, root.activeColumns);
-                root.insertToggleAt(root.draggedType, targetIdx);
+                // Reorder within active toggles — one-shot at drag end
+                let list = root.workingToggles.slice();
+                const fromIdx = list.indexOf(root.draggedType);
+                if (fromIdx !== -1 && fromIdx !== root.dropTargetIndex) {
+                    list.splice(fromIdx, 1);
+                    list.splice(root.dropTargetIndex, 0, root.draggedType);
+                    saveToggles(list);
+                }
             }
         }
 
@@ -307,9 +300,9 @@ AbstractQuickPanel {
                 }
             }
 
-            // Drop indicator line inside active grid when dragging from unused
+            // Drop indicator line — shows for any drag with a valid drop target
             Rectangle {
-                visible: root.isDragging && root.draggedIsUnused && root.dropTargetIndex >= 0
+                visible: root.isDragging && root.dropTargetIndex >= 0
                 z: 10
                 width: 3
                 height: 36

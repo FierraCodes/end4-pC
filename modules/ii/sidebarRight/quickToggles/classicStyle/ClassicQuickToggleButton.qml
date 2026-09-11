@@ -47,6 +47,7 @@ GroupButton {
 
     DragHandler {
         id: dragHandler
+        enabled: root.editMode
         acceptedButtons: Qt.LeftButton
         dragThreshold: 8
         grabPermissions: PointerHandler.CanTakeOverFromAnything
