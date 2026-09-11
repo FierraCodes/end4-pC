@@ -12,10 +12,15 @@ GroupButton {
     property var toggleModel: null
     property bool editMode: false
     property bool isUnused: false
+    property bool isDragPlaceholder: false
+    property bool isDraggingThis: false
 
     signal removeRequested()
     signal addRequested()
     signal openMenu()
+    signal dragStarted(string bType, bool unused, point scenePos)
+    signal dragMoved(point scenePos)
+    signal dragEnded(point scenePos)
 
     property string buttonIcon: toggleModel?.icon ?? "close"
     toggled: !editMode && (toggleModel?.toggled ?? false)
@@ -33,9 +38,33 @@ GroupButton {
     buttonRadius: Appearance?.rounding?.normal ?? 17
     buttonRadiusPressed: Appearance?.rounding?.small ?? 12
 
-    opacity: isUnused ? 0.6 : 1.0
+    opacity: isDragPlaceholder ? 0.25 : (isUnused ? 0.6 : 1.0)
     Behavior on opacity {
         NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+    }
+
+    mouseArea.cursorShape: isDraggingThis ? Qt.ClosedHandCursor : (editMode ? Qt.OpenHandCursor : Qt.PointingHandCursor)
+
+    DragHandler {
+        id: dragHandler
+        acceptedButtons: Qt.LeftButton
+        dragThreshold: 8
+        grabPermissions: PointerHandler.CanTakeOverFromAnything
+
+        onActiveChanged: {
+            root.isDraggingThis = active;
+            if (active) {
+                root.dragStarted(root.buttonType, root.isUnused, dragHandler.centroid.scenePosition);
+            } else {
+                root.dragEnded(dragHandler.centroid.scenePosition);
+            }
+        }
+
+        onCentroidChanged: {
+            if (active) {
+                root.dragMoved(dragHandler.centroid.scenePosition);
+            }
+        }
     }
 
     onClicked: {
@@ -85,7 +114,7 @@ GroupButton {
     // Delete badge in edit mode (for active toggles)
     Rectangle {
         id: deleteBadge
-        visible: root.editMode && !root.isUnused
+        visible: root.editMode && !root.isUnused && !root.isDragPlaceholder
         z: 10
         width: 18
         height: 18
@@ -122,7 +151,7 @@ GroupButton {
     // Add badge in edit mode (for unused toggles)
     Rectangle {
         id: addBadge
-        visible: root.editMode && root.isUnused
+        visible: root.editMode && root.isUnused && !root.isDragPlaceholder
         z: 10
         width: 18
         height: 18

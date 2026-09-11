@@ -4,6 +4,7 @@ import qs.modules.common.models.quickToggles as Models
 import qs.modules.common.widgets
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Effects
 
 import qs.modules.ii.sidebarRight.quickToggles.classicStyle
 
@@ -15,8 +16,31 @@ AbstractQuickPanel {
     implicitHeight: mainColumn.implicitHeight
     color: "transparent"
 
+    property bool isDragging: false
+    property string draggedType: ""
+    property int draggedIndex: -1
+    property bool draggedIsUnused: false
+    property point ghostPos: Qt.point(0, 0)
+    property int dropTargetIndex: -1
+
+    property var workingToggles: []
+
+    function syncWorkingToggles(): void {
+        if (!root.isDragging) {
+            root.workingToggles = Array.from(root.toggles);
+        }
+    }
+
+    Component.onCompleted: {
+        syncWorkingToggles();
+    }
+
+    onTogglesChanged: {
+        syncWorkingToggles();
+    }
+
     readonly property int maxColumns: 9
-    readonly property int activeColumns: Math.min(maxColumns, Math.max(1, root.toggles.length))
+    readonly property int activeColumns: Math.min(maxColumns, Math.max(1, root.workingToggles.length))
 
     readonly property list<string> availableToggleTypes: {
         const base = [
@@ -47,11 +71,11 @@ AbstractQuickPanel {
     }
 
     readonly property list<string> unusedToggles: {
-        return availableToggleTypes.filter(t => !root.toggles.includes(t));
+        return availableToggleTypes.filter(t => !root.workingToggles.includes(t));
     }
 
     function addToggle(type: string): void {
-        let current = Array.from(root.toggles);
+        let current = Array.from(root.workingToggles);
         if (!current.includes(type)) {
             current.push(type);
             saveToggles(current);
@@ -59,7 +83,7 @@ AbstractQuickPanel {
     }
 
     function removeToggle(type: string): void {
-        let current = Array.from(root.toggles);
+        let current = Array.from(root.workingToggles);
         const idx = current.indexOf(type);
         if (idx !== -1) {
             current.splice(idx, 1);
@@ -67,11 +91,107 @@ AbstractQuickPanel {
         }
     }
 
+    function insertToggleAt(type: string, targetIndex: int): void {
+        let current = Array.from(root.workingToggles);
+        const existingIdx = current.indexOf(type);
+        if (existingIdx !== -1) {
+            current.splice(existingIdx, 1);
+        }
+        const insertIdx = Math.max(0, Math.min(current.length, targetIndex));
+        current.splice(insertIdx, 0, type);
+        saveToggles(current);
+    }
+
+    function swapWorkingToggles(fromIdx: int, toIdx: int): void {
+        if (fromIdx === toIdx) return;
+        if (fromIdx < 0 || fromIdx >= workingToggles.length) return;
+        if (toIdx < 0 || toIdx >= workingToggles.length) return;
+        let list = workingToggles.slice();
+        const item = list.splice(fromIdx, 1)[0];
+        list.splice(toIdx, 0, item);
+        workingToggles = list;
+    }
+
     function saveToggles(newList: var): void {
+        root.workingToggles = Array.from(newList);
         if (!Config.options.sidebar.quickToggles.classic) {
             Config.options.sidebar.quickToggles.classic = {};
         }
         Config.options.sidebar.quickToggles.classic.toggles = newList;
+    }
+
+    function getGridIndexAt(localX: real, localY: real, totalCount: int, columns: int): int {
+        if (totalCount <= 0) return 0;
+        const cellW = 46;
+        const cellH = 46;
+        let col = Math.floor(localX / cellW);
+        let row = Math.floor(localY / cellH);
+        col = Math.max(0, Math.min(columns - 1, col));
+        row = Math.max(0, row);
+        let idx = row * columns + col;
+        return Math.max(0, Math.min(totalCount - 1, idx));
+    }
+
+    function handleDragStarted(bType: string, idx: int, unused: bool, scenePos: point): void {
+        root.isDragging = true;
+        root.draggedType = bType;
+        root.draggedIndex = idx;
+        root.draggedIsUnused = unused;
+        root.ghostPos = root.mapFromItem(null, scenePos.x, scenePos.y);
+        root.dropTargetIndex = -1;
+    }
+
+    function handleDragMoved(scenePos: point): void {
+        if (!root.isDragging) return;
+        root.ghostPos = root.mapFromItem(null, scenePos.x, scenePos.y);
+
+        const localActive = activeGrid.mapFromItem(null, scenePos.x, scenePos.y);
+        const isInsideGrid = (localActive.x >= 0 && localActive.x <= activeGrid.width &&
+                              localActive.y >= 0 && localActive.y <= activeGrid.height);
+
+        if (!root.draggedIsUnused) {
+            if (isInsideGrid) {
+                const targetIdx = getGridIndexAt(localActive.x, localActive.y, root.workingToggles.length, root.activeColumns);
+                if (targetIdx !== -1 && targetIdx !== root.draggedIndex) {
+                    swapWorkingToggles(root.draggedIndex, targetIdx);
+                    root.draggedIndex = targetIdx;
+                }
+            }
+        } else {
+            if (isInsideGrid) {
+                root.dropTargetIndex = getGridIndexAt(localActive.x, localActive.y, root.workingToggles.length + 1, root.activeColumns);
+            } else {
+                root.dropTargetIndex = -1;
+            }
+        }
+    }
+
+    function handleDragEnded(scenePos: point): void {
+        if (!root.isDragging) return;
+
+        const localGroup = activeGroup.mapFromItem(null, scenePos.x, scenePos.y);
+        const isInsideActiveGroup = (localGroup.x >= -10 && localGroup.x <= activeGroup.width + 10 &&
+                                     localGroup.y >= -10 && localGroup.y <= activeGroup.height + 10);
+
+        if (!root.draggedIsUnused) {
+            if (root.editMode && (localGroup.y > activeGroup.height + 15 || localGroup.y < -30)) {
+                root.removeToggle(root.draggedType);
+            } else {
+                root.saveToggles(root.workingToggles);
+            }
+        } else {
+            if (isInsideActiveGroup) {
+                const localActive = activeGrid.mapFromItem(null, scenePos.x, scenePos.y);
+                const targetIdx = getGridIndexAt(localActive.x, localActive.y, root.workingToggles.length + 1, root.activeColumns);
+                root.insertToggleAt(root.draggedType, targetIdx);
+            }
+        }
+
+        root.isDragging = false;
+        root.draggedType = "";
+        root.draggedIndex = -1;
+        root.draggedIsUnused = false;
+        root.dropTargetIndex = -1;
     }
 
     function openMenuForType(type: string): void {
@@ -167,17 +287,45 @@ AbstractQuickPanel {
                 rowSpacing: 6
 
                 Repeater {
-                    model: root.toggles
+                    id: activeRepeater
+                    model: root.workingToggles
                     ClassicQuickToggleButton {
+                        id: activeBtn
                         required property string modelData
+                        required property int index
                         buttonType: modelData
                         toggleModel: root.getModelForType(modelData)
                         editMode: root.editMode
                         isUnused: false
+                        isDragPlaceholder: root.isDragging && root.draggedType === modelData && !root.draggedIsUnused
                         onRemoveRequested: root.removeToggle(modelData)
                         onOpenMenu: root.openMenuForType(modelData)
+                        onDragStarted: (bType, unused, scenePos) => root.handleDragStarted(bType, activeBtn.index, unused, scenePos)
+                        onDragMoved: (scenePos) => root.handleDragMoved(scenePos)
+                        onDragEnded: (scenePos) => root.handleDragEnded(scenePos)
                     }
                 }
+            }
+
+            // Drop indicator line inside active grid when dragging from unused
+            Rectangle {
+                visible: root.isDragging && root.draggedIsUnused && root.dropTargetIndex >= 0
+                z: 10
+                width: 3
+                height: 36
+                radius: 2
+                color: Appearance.colors.colPrimary
+                parent: activeGrid
+                x: {
+                    const col = root.dropTargetIndex % Math.max(1, root.activeColumns);
+                    return col * 46 - 4;
+                }
+                y: {
+                    const row = Math.floor(root.dropTargetIndex / Math.max(1, root.activeColumns));
+                    return row * 46 + 2;
+                }
+                Behavior on x { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
+                Behavior on y { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
             }
         }
 
@@ -227,11 +375,38 @@ AbstractQuickPanel {
                                 editMode: root.editMode
                                 isUnused: true
                                 onAddRequested: root.addToggle(modelData)
+                                onDragStarted: (bType, unused, scenePos) => root.handleDragStarted(bType, -1, unused, scenePos)
+                                onDragMoved: (scenePos) => root.handleDragMoved(scenePos)
+                                onDragEnded: (scenePos) => root.handleDragEnded(scenePos)
                             }
                         }
                     }
                 }
             }
+        }
+    }
+
+    // Floating ghost icon that follows cursor while dragging
+    Rectangle {
+        visible: root.isDragging
+        z: 999
+        width: 40; height: 40
+        radius: Appearance.rounding.normal
+        color: Appearance.colors.colPrimaryContainer
+        border.color: Appearance.colors.colPrimary
+        border.width: 2
+        opacity: 0.85
+        x: root.ghostPos.x - 20
+        y: root.ghostPos.y - 20
+        scale: 1.18
+        Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutBack } }
+
+        MaterialSymbol {
+            anchors.centerIn: parent
+            iconSize: 22
+            fill: 1
+            color: Appearance.colors.colOnPrimaryContainer
+            text: root.getModelForType(root.draggedType)?.icon ?? "close"
         }
     }
 }
