@@ -18,7 +18,7 @@ AbstractQuickPanel {
 
     property bool isDragging: false
     property string draggedType: ""
-    property int draggedIndex: -1
+    property string draggedIcon: ""   // cached on drag start — avoids getModelForType() each frame
     property bool draggedIsUnused: false
     property point ghostPos: Qt.point(0, 0)
     property int dropTargetIndex: -1
@@ -31,13 +31,8 @@ AbstractQuickPanel {
         }
     }
 
-    Component.onCompleted: {
-        syncWorkingToggles();
-    }
-
-    onTogglesChanged: {
-        syncWorkingToggles();
-    }
+    Component.onCompleted: { syncWorkingToggles(); }
+    onTogglesChanged: { syncWorkingToggles(); }
 
     readonly property int maxColumns: 9
     readonly property int activeColumns: Math.min(maxColumns, Math.max(1, root.workingToggles.length))
@@ -102,16 +97,6 @@ AbstractQuickPanel {
         saveToggles(current);
     }
 
-    function swapWorkingToggles(fromIdx: int, toIdx: int): void {
-        if (fromIdx === toIdx) return;
-        if (fromIdx < 0 || fromIdx >= workingToggles.length) return;
-        if (toIdx < 0 || toIdx >= workingToggles.length) return;
-        let list = workingToggles.slice();
-        const item = list.splice(fromIdx, 1)[0];
-        list.splice(toIdx, 0, item);
-        workingToggles = list;
-    }
-
     function saveToggles(newList: var): void {
         root.workingToggles = Array.from(newList);
         if (!Config.options.sidebar.quickToggles.classic) {
@@ -132,10 +117,10 @@ AbstractQuickPanel {
         return Math.max(0, Math.min(totalCount - 1, idx));
     }
 
-    function handleDragStarted(bType: string, idx: int, unused: bool, scenePos: point): void {
+    function handleDragStarted(bType: string, unused: bool, scenePos: point): void {
         root.isDragging = true;
         root.draggedType = bType;
-        root.draggedIndex = idx;
+        root.draggedIcon = root.getModelForType(bType)?.icon ?? "close";
         root.draggedIsUnused = unused;
         root.ghostPos = root.mapFromItem(null, scenePos.x, scenePos.y);
         root.dropTargetIndex = -1;
@@ -178,11 +163,17 @@ AbstractQuickPanel {
                     saveToggles(list);
                 }
             }
+        } else if (!root.draggedIsUnused && root.editMode) {
+            // Dropped outside active grid in edit mode: remove if dropped below active group
+            const localGroup = activeGroup.mapFromItem(null, scenePos.x, scenePos.y);
+            if (localGroup.y > activeGroup.height + 10) {
+                root.removeToggle(root.draggedType);
+            }
         }
 
         root.isDragging = false;
         root.draggedType = "";
-        root.draggedIndex = -1;
+        root.draggedIcon = "";
         root.draggedIsUnused = false;
         root.dropTargetIndex = -1;
     }
@@ -293,7 +284,7 @@ AbstractQuickPanel {
                         isDragPlaceholder: root.isDragging && root.draggedType === modelData && !root.draggedIsUnused
                         onRemoveRequested: root.removeToggle(modelData)
                         onOpenMenu: root.openMenuForType(modelData)
-                        onDragStarted: (bType, unused, scenePos) => root.handleDragStarted(bType, activeBtn.index, unused, scenePos)
+                        onDragStarted: (bType, unused, scenePos) => root.handleDragStarted(bType, unused, scenePos)
                         onDragMoved: (scenePos) => root.handleDragMoved(scenePos)
                         onDragEnded: (scenePos) => root.handleDragEnded(scenePos)
                     }
@@ -368,7 +359,7 @@ AbstractQuickPanel {
                                 editMode: root.editMode
                                 isUnused: true
                                 onAddRequested: root.addToggle(modelData)
-                                onDragStarted: (bType, unused, scenePos) => root.handleDragStarted(bType, -1, unused, scenePos)
+                                onDragStarted: (bType, unused, scenePos) => root.handleDragStarted(bType, unused, scenePos)
                                 onDragMoved: (scenePos) => root.handleDragMoved(scenePos)
                                 onDragEnded: (scenePos) => root.handleDragEnded(scenePos)
                             }
@@ -399,7 +390,7 @@ AbstractQuickPanel {
             iconSize: 22
             fill: 1
             color: Appearance.colors.colOnPrimaryContainer
-            text: root.getModelForType(root.draggedType)?.icon ?? "close"
+            text: root.draggedIcon || (root.getModelForType(root.draggedType)?.icon ?? "close")
         }
     }
 }

@@ -40,6 +40,29 @@ Item {
 
     readonly property MprisPlayer activePlayer: MprisController.activePlayer
     readonly property var realPlayers: MprisController.players
+
+    function filterDuplicatePlayers(players) {
+        let filtered = [];
+        let used = new Set();
+        for (let i = 0; i < players.length; ++i) {
+            if (used.has(i)) continue;
+            let p1 = players[i];
+            let group = [i];
+            for (let j = i + 1; j < players.length; ++j) {
+                let p2 = players[j];
+                if ((p1.trackTitle && p2.trackTitle &&
+                    (p1.trackTitle.includes(p2.trackTitle) || p2.trackTitle.includes(p1.trackTitle))) ||
+                    (Math.abs(p1.position - p2.position) <= 2 && Math.abs(p1.length - p2.length) <= 2)) {
+                    group.push(j);
+                    used.add(j);
+                }
+            }
+            let chosenIdx = group.find(idx => players[idx].trackArtUrl && players[idx].trackArtUrl.length > 0);
+            filtered.push(players[chosenIdx !== undefined ? chosenIdx : group[0]]);
+        }
+        return filtered;
+    }
+
     readonly property var meaningfulPlayers: {
         const preferred = Config.options.bar.media.preferredPlayer.trim().toLowerCase()
         if (preferred.length === 0) return filterDuplicatePlayers(realPlayers)
@@ -250,7 +273,7 @@ Item {
                                     buttonIcon: "edit"
                                     onClicked: root.editMode = !root.editMode
                                     StyledToolTip {
-                                        text: Translation.tr("Edit quick toggles") + (root.editMode ? (Config.options.sidebar.quickToggles.style === "android" ? Translation.tr("\nLMB to enable/disable\nRMB to toggle size\nScroll to swap position") : Translation.tr("\nClick to add\nClick × to remove")) : "")
+                                        text: Translation.tr("Edit quick toggles") + (root.editMode ? (Config.options.sidebar.quickToggles.style === "android" ? Translation.tr("\nLMB to enable/disable\nRMB to toggle size\nScroll to swap position") : Translation.tr("\nDrag to reorder\nClick × to remove\nDrag from below to add")) : "")
                                     }
                                 }
                                 QuickToggleButton {
