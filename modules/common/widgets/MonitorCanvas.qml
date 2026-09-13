@@ -21,18 +21,17 @@ Item {
         const mons = monitorConfig.monitors
         for (let i = 0; i < mons.length; i++) {
             const m = mons[i]
-            if (m.disabled) continue
-            const w = monitorConfig.logicalWidth(m)
-            const h = monitorConfig.logicalHeight(m)
-            const px = previewPositions[m.name]?.x ?? m.x
-            const py = previewPositions[m.name]?.y ?? m.y
+            const w = monitorConfig.logicalWidth(m) || 1920
+            const h = monitorConfig.logicalHeight(m) || 1080
+            const px = previewPositions[m.name]?.x ?? m.x ?? 0
+            const py = previewPositions[m.name]?.y ?? m.y ?? 0
             minX = Math.min(minX, px)
             minY = Math.min(minY, py)
             maxX = Math.max(maxX, px + w)
             maxY = Math.max(maxY, py + h)
         }
         if (minX === Infinity) return { minX: 0, minY: 0, width: 1920, height: 1080 }
-        return { minX, minY, width: maxX - minX, height: maxY - minY }
+        return { minX, minY, width: Math.max(100, maxX - minX), height: Math.max(100, maxY - minY) }
     }
 
     property real scaleFactor: {
@@ -49,6 +48,7 @@ Item {
 
     function checkOverlap(monitors, idx) {
         const a = monitors[idx]
+        if (a.disabled) return false
         const aw = monitorConfig.logicalWidth(a)
         const ah = monitorConfig.logicalHeight(a)
         for (let i = 0; i < monitors.length; i++) {
@@ -67,20 +67,22 @@ Item {
 
     function computeNormalized(monitors, changedIdx, newX, newY) {
         let m = monitors.slice().map(mon => Object.assign({}, mon))
-        m[changedIdx].x = newX
-        m[changedIdx].y = newY
+        m[changedIdx].x = Math.max(0, newX)
+        m[changedIdx].y = Math.max(0, newY)
         let minX = Infinity, minY = Infinity
         for (let i = 0; i < m.length; i++) {
             if (m[i].disabled) continue
             minX = Math.min(minX, m[i].x)
             minY = Math.min(minY, m[i].y)
         }
-        const offX = minX < 0 ? -minX : 0
-        const offY = minY < 0 ? -minY : 0
-        if (offX > 0 || offY > 0) {
+        if (minX !== Infinity && minX > 0) {
             for (let i = 0; i < m.length; i++) {
-                m[i].x += offX
-                m[i].y += offY
+                if (!m[i].disabled) m[i].x -= minX
+            }
+        }
+        if (minY !== Infinity && minY > 0) {
+            for (let i = 0; i < m.length; i++) {
+                if (!m[i].disabled) m[i].y -= minY
             }
         }
         return m

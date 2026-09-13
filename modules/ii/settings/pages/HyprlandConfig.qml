@@ -36,32 +36,10 @@ ContentPage {
         }
     }
 
-    Component.onCompleted: {
-        const h = Config.options.hyprland
-        HyprlandConfig.setMany({
-            "decoration:rounding":                  h.decoration.rounding,
-            "decoration:blur:enabled":              h.decoration.blur.enabled ? 1 : 0,
-            "decoration:blur:size":                 h.decoration.blur.size,
-            "decoration:blur:passes":               h.decoration.blur.passes,
-            "decoration:active_opacity":            h.decoration.activeOpacity,
-            "decoration:inactive_opacity":          h.decoration.inactiveOpacity,
-            "general:border_size":                  h.general.borderSize,
-            "general:gaps_in":                      h.general.gapsIn,
-            "general:gaps_out":                     h.general.gapsOut,
-            "general:layout":                       h.general.layout,
-            "animations:enabled":                   h.animations.enable ? 1 : 0,
-            "input:kb_layout":                      h.input.kbLayout,
-            "input:numlock_by_default":             h.input.numlock ? 1 : 0,
-            "input:repeat_delay":                   h.input.repeatDelay,
-            "input:repeat_rate":                    h.input.repeatRate,
-            "input:follow_mouse":                   h.input.followMouse,
-            "input:touchpad:natural_scroll":        h.input.touchpad.naturalScroll ? 1 : 0,
-            "input:touchpad:disable_while_typing":  h.input.touchpad.disableWhileTyping ? 1 : 0,
-            "input:touchpad:clickfinger_behavior":  h.input.touchpad.clickfingerBehavior ? 1 : 0,
-            "input:touchpad:scroll_factor":         h.input.touchpad.scrollFactor
-        })
-    }
     MonitorConfigOption { id: monitorConfig }
+
+    readonly property int selectedIndex: Math.min(monitorCanvas.selectedIndex, Math.max(0, monitorConfig.monitors.length - 1))
+    readonly property var currentMon: monitorConfig.monitors[selectedIndex]
 
     ColumnLayout {
         id: mainLayout
@@ -84,17 +62,17 @@ ContentPage {
 
             ContentSubsection {
                 Layout.topMargin: 10
-                title: (monitorConfig.monitors[monitorCanvas.selectedIndex]?.name ?? "")
+                title: (page.currentMon?.name ?? "")
                     + " · "
-                    + (monitorConfig.monitors[monitorCanvas.selectedIndex]?.description ?? "")
+                    + (page.currentMon?.description ?? "")
 
                 GroupedList {
                     ConfigSwitch {
                         buttonIcon: "tv_off"
                         text: Translation.tr("Enabled")
-                        checked: !(monitorConfig.monitors[monitorCanvas.selectedIndex]?.disabled ?? false)
+                        checked: !(page.currentMon?.disabled ?? false)
                         onCheckedChanged: {
-                            if (checked === !(monitorConfig.monitors[monitorCanvas.selectedIndex]?.disabled ?? false)) return
+                            if (checked === !(page.currentMon?.disabled ?? false)) return
                             monitorConfig.updateMonitor(monitorCanvas.selectedIndex, { disabled: !checked })
                             monitorConfig.applyAndSave(monitorCanvas.selectedIndex)
                         }
@@ -105,26 +83,28 @@ ContentPage {
                         buttonIcon: "aspect_ratio"
                         text: Translation.tr("Resolution & Refresh Rate")
                         textRole: "display"
-                        model: (monitorConfig.monitors[monitorCanvas.selectedIndex]?.availableModes ?? [])
+                        model: (page.currentMon?.availableModes ?? [])
                             .map(mode => ({ display: mode, value: mode }))
-                        currentValue: monitorConfig.monitors[monitorCanvas.selectedIndex]?.currentMode ?? ""
+                        currentValue: page.currentMon?.currentMode ?? ""
                         onSelected: newValue => {
                             const mode = newValue
                             const parts = mode.match(/(\d+)x(\d+)@([\d.]+)Hz/)
-                            monitorConfig.updateMonitor(monitorCanvas.selectedIndex, {
-                                currentMode: mode,
-                                width: parseInt(parts[1]),
-                                height: parseInt(parts[2]),
-                                refreshRate: parseFloat(parts[3])
-                            })
-                            monitorConfig.applyAndSave(monitorCanvas.selectedIndex)
+                            if (parts) {
+                                monitorConfig.updateMonitor(monitorCanvas.selectedIndex, {
+                                    currentMode: mode,
+                                    width: parseInt(parts[1]),
+                                    height: parseInt(parts[2]),
+                                    refreshRate: parseFloat(parts[3])
+                                })
+                                monitorConfig.applyAndSave(monitorCanvas.selectedIndex)
+                            }
                         }
                     }
 
                     ConfigSelectionArray {
                         text: Translation.tr("Orientation")
                         icon: "mobile_rotate"
-                        currentValue: monitorConfig.monitors[monitorCanvas.selectedIndex]?.transform ?? 0
+                        currentValue: page.currentMon?.transform ?? 0
                         onSelected: newValue => {
                             monitorConfig.updateMonitor(monitorCanvas.selectedIndex, { transform: newValue })
                             monitorConfig.applyAndSave(monitorCanvas.selectedIndex)
@@ -136,15 +116,26 @@ ContentPage {
                             { displayName: "270°",                   icon: "rotate_90_degrees_ccw", value: 3 },
                         ]
                     }
+
+                    ConfigSwitch {
+                        buttonIcon: "autoplay"
+                        text: Translation.tr("Variable refresh rate (VRR)")
+                        checked: page.currentMon?.vrr ?? false
+                        onCheckedChanged: {
+                            if (checked === (page.currentMon?.vrr ?? false)) return
+                            monitorConfig.updateMonitor(monitorCanvas.selectedIndex, { vrr: checked })
+                            monitorConfig.applyAndSave(monitorCanvas.selectedIndex)
+                        }
+                    }
     
                     ConfigSpinBox {
                         icon: "zoom_in"
                         text: Translation.tr("Scale")
-                        value: Math.round((monitorConfig.monitors[monitorCanvas.selectedIndex]?.scale ?? 1.0) * 100)
+                        value: Math.round((page.currentMon?.scale ?? 1.0) * 100)
                         from: 50; to: 300; stepSize: 25
                         onValueChanged: {
                             const newVal = value / 100.0
-                            if (newVal === (monitorConfig.monitors[monitorCanvas.selectedIndex]?.scale ?? 1.0)) return
+                            if (newVal === (page.currentMon?.scale ?? 1.0)) return
                             monitorConfig.updateMonitor(monitorCanvas.selectedIndex, { scale: newVal })
                             monitorConfig.applyAndSave(monitorCanvas.selectedIndex)
                         }
@@ -153,10 +144,10 @@ ContentPage {
                     ConfigSpinBox {
                         icon: "swap_horiz"
                         text: Translation.tr("Position X")
-                        value: monitorConfig.monitors[monitorCanvas.selectedIndex]?.x ?? 0
-                        from: 0; to: 7680; stepSize: 1
+                        value: page.currentMon?.x ?? 0
+                        from: 0; to: 7680; stepSize: 10
                         onValueChanged: {
-                            if (value === (monitorConfig.monitors[monitorCanvas.selectedIndex]?.x ?? 0)) return
+                            if (value === (page.currentMon?.x ?? 0)) return
                             monitorConfig.updateMonitor(monitorCanvas.selectedIndex, { x: value })
                             monitorConfig.applyAndSave(monitorCanvas.selectedIndex)
                         }
@@ -165,10 +156,10 @@ ContentPage {
                     ConfigSpinBox {
                         icon: "swap_vert"
                         text: Translation.tr("Position Y")
-                        value: monitorConfig.monitors[monitorCanvas.selectedIndex]?.y ?? 0
-                        from: 0; to: 4320; stepSize: 1
+                        value: page.currentMon?.y ?? 0
+                        from: 0; to: 4320; stepSize: 10
                         onValueChanged: {
-                            if (value === (monitorConfig.monitors[monitorCanvas.selectedIndex]?.y ?? 0)) return
+                            if (value === (page.currentMon?.y ?? 0)) return
                             monitorConfig.updateMonitor(monitorCanvas.selectedIndex, { y: value })
                             monitorConfig.applyAndSave(monitorCanvas.selectedIndex)
                         }
@@ -283,8 +274,90 @@ ContentPage {
             }
 
             ContentSubsection {
+                title: Translation.tr("Pointer & Acceleration")
+                GroupedList {
+                    ConfigSpinBox {
+                        icon: "speed"
+                        text: Translation.tr("Pointer speed (sensitivity)")
+                        value: Math.round((Config.options.hyprland.input.sensitivity ?? 0.0) * 100)
+                        from: -100; to: 100; stepSize: 5
+                        onValueChanged: {
+                            const newVal = value / 100.0
+                            if (newVal === (Config.options.hyprland.input.sensitivity ?? 0.0)) return
+                            Config.options.hyprland.input.sensitivity = newVal
+                            HyprlandConfig.set("input:sensitivity", newVal)
+                        }
+                    }
+
+                    ConfigSelectionArray {
+                        text: Translation.tr("Acceleration profile")
+                        icon: "near_me"
+                        currentValue: Config.options.hyprland.input.accelProfile ?? "adaptive"
+                        onSelected: newValue => {
+                            Config.options.hyprland.input.accelProfile = newValue
+                            HyprlandConfig.set("input:accel_profile", newValue)
+                        }
+                        options: [
+                            { displayName: Translation.tr("Adaptive"), icon: "speed", value: "adaptive" },
+                            { displayName: Translation.tr("Flat (Linear)"), icon: "linear_scale", value: "flat" },
+                            { displayName: Translation.tr("Custom"), icon: "tune", value: "custom" },
+                        ]
+                    }
+
+                    ConfigSwitch {
+                        buttonIcon: "do_not_disturb_on"
+                        text: Translation.tr("Force no acceleration")
+                        checked: Config.options.hyprland.input.forceNoAccel ?? false
+                        onCheckedChanged: {
+                            if (checked === (Config.options.hyprland.input.forceNoAccel ?? false)) return
+                            Config.options.hyprland.input.forceNoAccel = checked
+                            HyprlandConfig.set("input:force_no_accel", checked ? 1 : 0)
+                        }
+                    }
+                }
+            }
+
+            ContentSubsection {
+                title: Translation.tr("Mouse")
+                GroupedList {
+                    ConfigSwitch {
+                        buttonIcon: "swap_vert"
+                        text: Translation.tr("Natural scroll")
+                        checked: Config.options.hyprland.input.mouse?.naturalScroll ?? false
+                        onCheckedChanged: {
+                            if (checked === (Config.options.hyprland.input.mouse?.naturalScroll ?? false)) return
+                            Config.options.hyprland.input.mouse.naturalScroll = checked
+                            HyprlandConfig.set("input:natural_scroll", checked ? 1 : 0)
+                        }
+                    }
+
+                    ConfigSwitch {
+                        buttonIcon: "front_hand"
+                        text: Translation.tr("Left handed mode")
+                        checked: Config.options.hyprland.input.mouse?.leftHanded ?? false
+                        onCheckedChanged: {
+                            if (checked === (Config.options.hyprland.input.mouse?.leftHanded ?? false)) return
+                            Config.options.hyprland.input.mouse.leftHanded = checked
+                            HyprlandConfig.set("input:left_handed", checked ? 1 : 0)
+                        }
+                    }
+                }
+            }
+
+            ContentSubsection {
                 title: Translation.tr("Touchpad")
                 GroupedList {
+                    ConfigSwitch {
+                        buttonIcon: "touch_app"
+                        text: Translation.tr("Tap to click")
+                        checked: Config.options.hyprland.input.touchpad.tapToClick ?? true
+                        onCheckedChanged: {
+                            if (checked === (Config.options.hyprland.input.touchpad.tapToClick ?? true)) return
+                            Config.options.hyprland.input.touchpad.tapToClick = checked
+                            HyprlandConfig.set("input:touchpad:tap_to_click", checked ? 1 : 0)
+                        }
+                    }
+
                     ConfigSwitch {
                         buttonIcon: "swap_vert"
                         text: Translation.tr("Natural scroll")
@@ -333,6 +406,272 @@ ContentPage {
                 }
             }
         }
+
+        // Devices
+        ContentSection {
+            icon: "devices"
+            shape: MaterialShape.Shape.Hexagon
+            title: Translation.tr("Devices")
+
+            // Fetch device list and refresh on reload or hotplug
+            Process {
+                id: devicesProc
+                command: ["hyprctl", "devices", "-j"]
+                running: true
+                stdout: StdioCollector {
+                    onStreamFinished: {
+                        try {
+                            const data = JSON.parse(text)
+                            const freshList = (data.mice || [])
+                                .filter(d => !d.name.startsWith("ydotoold") && !d.name.startsWith("hl-virtual"))
+                                .map(d => ({
+                                    name: d.name,
+                                    isTouchpad: d.name.includes("touchpad")
+                                }))
+
+                            // Add newly connected devices (preserves existing card state)
+                            for (const dev of freshList) {
+                                let exists = false
+                                for (let i = 0; i < deviceListModel.count; i++) {
+                                    if (deviceListModel.get(i).name === dev.name) { exists = true; break }
+                                }
+                                if (!exists) deviceListModel.append(dev)
+                            }
+
+                            // Remove disconnected devices
+                            for (let i = deviceListModel.count - 1; i >= 0; i--) {
+                                const gone = !freshList.some(d => d.name === deviceListModel.get(i).name)
+                                if (gone) deviceListModel.remove(i)
+                            }
+                        } catch (e) {
+                            console.log("[Devices] Failed to parse hyprctl devices -j:", e)
+                        }
+                    }
+                }
+            }
+
+            // Refresh on Hyprland reload (catches hotplug events that trigger reload)
+            Connections {
+                target: HyprlandConfig
+                function onReloaded() { devicesProc.running = true }
+            }
+
+
+            ListModel { id: deviceListModel }
+
+            Repeater {
+                model: deviceListModel
+                delegate: Item {
+                    id: deviceCard
+                    required property string name
+                    required property bool isTouchpad
+                    required property int index
+
+                    Layout.fillWidth: true
+                    implicitHeight: cardColumn.implicitHeight
+
+                    // Per-device state (initialized from live Hyprland config via hyprctl eval)
+                    property real devSensitivity: 0.0
+                    property string devAccelProfile: "adaptive"
+                    property bool devNaturalScroll: false
+                    property bool devTapToClick: true
+                    property bool devLeftHanded: false
+                    property bool collapsed: true
+                    property bool loaded: false
+
+                    Component.onCompleted: fetchDeviceState()
+
+                    function fetchDeviceState() {
+                        const luaExpr = `
+local name = "${deviceCard.name}"
+local f = io.open("/tmp/qs_dev_" .. name:gsub("[^%w]","_") .. ".json", "w")
+local ok, res = pcall(function()
+  return hl.get_config("device:" .. name .. ":sensitivity")
+end)
+local sens = ok and res or 0.0
+local ok2, res2 = pcall(function()
+  return hl.get_config("device:" .. name .. ":accel_profile")
+end)
+local ap = ok2 and res2 or "adaptive"
+f:write('{"sensitivity":' .. tostring(sens) .. ',"accel_profile":"' .. tostring(ap) .. '"}')
+f:close()
+`
+                        // Use hyprctl eval to read current device state
+                        fetchProc.command = ["hyprctl", "eval", luaExpr.trim()]
+                        fetchProc.running = true
+                    }
+
+                    Process {
+                        id: fetchProc
+                        onExited: {
+                            // Read the written JSON file
+                            const fname = "/tmp/qs_dev_" + deviceCard.name.replace(/[^\w]/g, "_") + ".json"
+                            readFileProc.command = ["cat", fname]
+                            readFileProc.running = true
+                        }
+                    }
+
+                    Process {
+                        id: readFileProc
+                        stdout: StdioCollector {
+                            onStreamFinished: {
+                                try {
+                                    const d = JSON.parse(text)
+                                    deviceCard.devSensitivity = d.sensitivity ?? 0.0
+                                    deviceCard.devAccelProfile = d.accel_profile ?? "adaptive"
+                                } catch (e) {}
+                                deviceCard.loaded = true
+                            }
+                        }
+                    }
+
+                    ColumnLayout {
+                        id: cardColumn
+                        anchors { left: parent.left; right: parent.right }
+                        spacing: 2
+
+                        // Collapsible header
+                        RippleButton {
+                            Layout.fillWidth: true
+                            implicitHeight: 44
+                            buttonRadius: deviceCard.collapsed
+                                ? Appearance.rounding.normal
+                                : Appearance.rounding.unsharpenmore
+                            colBackground: Appearance.colors.colLayer1
+                            colBackgroundHover: Appearance.colors.colLayer1Hover
+                            colRipple: Appearance.colors.colLayer1Active
+                            onClicked: deviceCard.collapsed = !deviceCard.collapsed
+
+                            Behavior on buttonRadius {
+                                NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+                            }
+
+                            contentItem: RowLayout {
+                                anchors { fill: parent; leftMargin: 12; rightMargin: 8 }
+                                spacing: 10
+
+                                MaterialSymbol {
+                                    text: deviceCard.isTouchpad ? "trackpad_input" : "mouse"
+                                    iconSize: Appearance.font.pixelSize.larger
+                                    color: Appearance.colors.colOnSecondaryContainer
+                                }
+                                StyledText {
+                                    Layout.fillWidth: true
+                                    text: deviceCard.name
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                    color: Appearance.colors.colOnSecondaryContainer
+                                    elide: Text.ElideRight
+                                }
+                                MaterialSymbol {
+                                    text: deviceCard.collapsed ? "expand_more" : "expand_less"
+                                    iconSize: Appearance.font.pixelSize.larger
+                                    color: Appearance.colors.colSubtext
+                                    Behavior on text {
+                                        // No text animation – chevron flips via binding above
+                                    }
+                                }
+                            }
+                        }
+
+                        // Collapsible body
+                        Item {
+                            id: collapseWrapper
+                            Layout.fillWidth: true
+                            visible: implicitHeight > 0
+                            implicitHeight: deviceCard.collapsed ? 0 : bodyColumn.implicitHeight
+                            clip: true
+
+                            Behavior on implicitHeight {
+                                animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
+                            }
+
+                            ColumnLayout {
+                                id: bodyColumn
+                                anchors { left: parent.left; right: parent.right }
+                                spacing: 2
+
+                                // Common options (all devices)
+                                GroupedList {
+                                    ConfigSpinBox {
+                                        icon: "speed"
+                                        text: Translation.tr("Sensitivity")
+                                        value: Math.round((deviceCard.devSensitivity) * 100)
+                                        from: -100; to: 100; stepSize: 5
+                                        onValueChanged: {
+                                            if (!deviceCard.loaded) return
+                                            const newVal = value / 100.0
+                                            if (Math.abs(newVal - deviceCard.devSensitivity) < 0.001) return
+                                            deviceCard.devSensitivity = newVal
+                                            HyprlandConfig.setDevice(deviceCard.name, { sensitivity: newVal })
+                                        }
+                                    }
+
+                                    ConfigSelectionArray {
+                                        text: Translation.tr("Accel profile")
+                                        icon: "near_me"
+                                        currentValue: deviceCard.devAccelProfile
+                                        onSelected: newValue => {
+                                            if (!deviceCard.loaded) return
+                                            deviceCard.devAccelProfile = newValue
+                                            HyprlandConfig.setDevice(deviceCard.name, { accel_profile: newValue })
+                                        }
+                                        options: [
+                                            { displayName: Translation.tr("Adaptive"), icon: "speed",         value: "adaptive" },
+                                            { displayName: Translation.tr("Flat"),     icon: "linear_scale",  value: "flat"     },
+                                            { displayName: Translation.tr("Custom"),   icon: "tune",          value: "custom"   },
+                                        ]
+                                    }
+
+                                    ConfigSwitch {
+                                        buttonIcon: "swap_vert"
+                                        text: Translation.tr("Natural scroll")
+                                        checked: deviceCard.devNaturalScroll
+                                        onCheckedChanged: {
+                                            if (!deviceCard.loaded) return
+                                            if (checked === deviceCard.devNaturalScroll) return
+                                            deviceCard.devNaturalScroll = checked
+                                            HyprlandConfig.setDevice(deviceCard.name, { natural_scroll: checked ? "true" : "false" })
+                                        }
+                                    }
+
+                                    ConfigSwitch {
+                                        buttonIcon: "front_hand"
+                                        text: Translation.tr("Left handed mode")
+                                        checked: deviceCard.devLeftHanded
+                                        onCheckedChanged: {
+                                            if (!deviceCard.loaded) return
+                                            if (checked === deviceCard.devLeftHanded) return
+                                            deviceCard.devLeftHanded = checked
+                                            HyprlandConfig.setDevice(deviceCard.name, { left_handed: checked ? "true" : "false" })
+                                        }
+                                    }
+                                }
+
+
+                                // Touchpad-only options
+                                GroupedList {
+                                    visible: deviceCard.isTouchpad
+                                    ConfigSwitch {
+                                        buttonIcon: "touch_app"
+                                        text: Translation.tr("Tap to click")
+                                        checked: deviceCard.devTapToClick
+                                        onCheckedChanged: {
+                                            if (!deviceCard.loaded) return
+                                            if (checked === deviceCard.devTapToClick) return
+                                            deviceCard.devTapToClick = checked
+                                            HyprlandConfig.setDevice(deviceCard.name, { tap_to_click: checked ? "true" : "false" })
+                                        }
+                                    }
+                                }
+
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+
 
         // Visual & Aesthetics
         ContentSection {
@@ -385,6 +724,29 @@ ContentPage {
                         if (value === Config.options.hyprland.decoration.blur.passes) return
                         Config.options.hyprland.decoration.blur.passes = value
                         HyprlandConfig.set("decoration:blur:passes", value)
+                    }
+                }
+
+                ConfigSwitch {
+                    buttonIcon: "ev_shadow"
+                    text: Translation.tr("Shadows")
+                    checked: Config.options.hyprland.decoration.shadow.enabled
+                    onCheckedChanged: {
+                        if (checked === Config.options.hyprland.decoration.shadow.enabled) return
+                        Config.options.hyprland.decoration.shadow.enabled = checked
+                        HyprlandConfig.set("decoration:shadow:enabled", checked ? 1 : 0)
+                    }
+                }
+
+                ConfigSpinBox {
+                    icon: "blur_linear"
+                    text: Translation.tr("Shadow Range")
+                    value: Config.options.hyprland.decoration.shadow.range
+                    from: 1; to: 50; stepSize: 1
+                    onValueChanged: {
+                        if (value === Config.options.hyprland.decoration.shadow.range) return
+                        Config.options.hyprland.decoration.shadow.range = value
+                        HyprlandConfig.set("decoration:shadow:range", value)
                     }
                 }
 
@@ -452,6 +814,42 @@ ContentPage {
             }
         }
 
+        // Cursor
+        ContentSection {
+            icon: "mouse"
+            shape: MaterialShape.Shape.Arrow
+            title: Translation.tr("Cursor")
+            GroupedList {
+                ConfigComboBox {
+                    buttonIcon: "mouse"
+                    fieldWidth: 70
+                    text: Translation.tr("Cursor theme")
+                    model: [{ displayName: Translation.tr("Default"), value: "" }]
+                        .concat(SystemTheming.cursorThemes.map(t => ({ displayName: t, value: t })))
+                    currentValue: SystemTheming.currentCursorTheme
+                    onSelected: newValue => SystemTheming.applyCursorTheme(newValue, SystemTheming.currentCursorSize)
+                }
+
+                ConfigSpinBox {
+                    id: cursorSizeSpin
+                    icon: "zoom_in"
+                    text: Translation.tr("Cursor size")
+                    value: SystemTheming.currentCursorSize
+                    from: 16; to: 64; stepSize: 2
+                    onValueChanged: {
+                        if (value === SystemTheming.currentCursorSize) return
+                        cursorSizeApplyTimer.restart()
+                    }
+                    Timer {
+                        id: cursorSizeApplyTimer
+                        interval: 500
+                        repeat: false
+                        onTriggered: SystemTheming.applyCursorTheme(SystemTheming.currentCursorTheme, cursorSizeSpin.value)
+                    }
+                }
+            }
+        }
+
         // Autostart Apps
         ContentSection {
             icon: "app_registration"
@@ -484,12 +882,7 @@ ContentPage {
                     currentValue: Config.options.hyprland.animations.animation
                     onSelected: newValue => {
                         Config.options.hyprland.animations.animation = newValue
-                        saveAnimProc.command = [
-                            "python3",
-                            HyprlandConfig.configuratorScriptPath,
-                            "--anim-preset", newValue
-                        ]
-                        saveAnimProc.running = true
+                        HyprlandConfig.setAnimPreset(newValue)
                     }
                     options: [
                         { displayName: Translation.tr("Elastic"),   icon: "move_selection_right", value: "fast"   },
@@ -527,15 +920,6 @@ ContentPage {
                         onTriggered: copySourceButton.justCopied = false
                     }
                 }
-            }
-
-            Process {
-                id: saveAnimProc
-                onRunningChanged: if (!running) reloadAnimProc.running = true
-            }
-            Process {
-                id: reloadAnimProc
-                command: ["hyprctl", "reload"]
             }
         }
     }

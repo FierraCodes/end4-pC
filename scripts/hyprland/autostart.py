@@ -1,16 +1,26 @@
 #!/usr/bin/env python3
-import json, subprocess, time, os
+import json, subprocess, time, os, sys
 
 lockfile = "/tmp/qs-autostart.lock"
-if os.path.exists(lockfile):
+force = "--force" in sys.argv or "-f" in sys.argv
+
+if not force and os.path.exists(lockfile):
     exit(0)
+
 open(lockfile, 'w').close()
 
-with open(f"{os.environ['HOME']}/.config/illogical-impulse/config.json") as f:
-    data = json.load(f)
+config_path = f"{os.environ['HOME']}/.config/illogical-impulse/config.json"
+if not os.path.exists(config_path):
+    exit(0)
+
+try:
+    with open(config_path) as f:
+        data = json.load(f)
+except Exception:
+    exit(1)
 
 autostart = data.get('hyprland', {}).get('autostartApps', {})
-if not autostart.get('enable', False):
+if not autostart.get('enable', False) and not force:
     exit(0)
 
 for app in autostart.get('apps', []):
@@ -20,7 +30,8 @@ for app in autostart.get('apps', []):
     if not cmd:
         continue
 
-    subprocess.run(['hyprctl', 'dispatch', f'hl.dsp.focus({{workspace = {workspace}}})'])
+    subprocess.run(['hyprctl', 'dispatch', f'hl.dsp.focus({{workspace = {workspace}}})'],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     expanded_cmd = os.path.expanduser(cmd)
     subprocess.Popen(
@@ -30,4 +41,5 @@ for app in autostart.get('apps', []):
         close_fds=True
     )
 
-    time.sleep(delay)
+    if delay > 0:
+        time.sleep(delay)

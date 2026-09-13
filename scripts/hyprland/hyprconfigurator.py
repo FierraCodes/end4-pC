@@ -2,6 +2,7 @@
 import argparse
 import os
 import re
+import subprocess
 import tempfile
 
 BOOL_KEYS = {
@@ -9,10 +10,34 @@ BOOL_KEYS = {
     "decoration:shadow:enabled",
     "animations:enabled",
     "input:numlock_by_default",
+    "input:force_no_accel",
+    "input:left_handed",
+    "input:natural_scroll",
+    "input:mouse:natural_scroll",
     "input:touchpad:natural_scroll",
     "input:touchpad:disable_while_typing",
     "input:touchpad:clickfinger_behavior",
+    "input:touchpad:tap_to_click",
+    "input:touchpad:tap-to-click",
 }
+
+# Fields that are booleans when used inside hl.device(...)
+DEVICE_BOOL_FIELDS = {
+    "natural_scroll",
+    "left_handed",
+    "tap_to_click",
+    "disable_while_typing",
+    "clickfinger_behavior",
+}
+
+
+def _parse_device_key(key):
+    """Return (device_name, field) if key is 'device[name]:field', else None."""
+    m = re.match(r'^device\[(.+?)\]:(.+)$', key)
+    if m:
+        return m.group(1), m.group(2)
+    return None
+
 
 ANIM_PRESETS = {
     "fast": """\
@@ -68,9 +93,19 @@ hl.animation({ leaf = "specialWorkspaceOut", enabled = true, speed = 4, bezier =
 }
 
 
-def to_lua_value(key, value):
-    if key in BOOL_KEYS:
-        return "false" if value == "0" else "true"
+def to_lua_value(key, value, *, is_device_field=False):
+    """Convert a Python value to a Lua literal string.
+
+    For device fields (is_device_field=True), boolean detection uses
+    DEVICE_BOOL_FIELDS instead of BOOL_KEYS.
+    """
+    dev = _parse_device_key(key)
+    if dev:
+        field = dev[1]
+        if field in DEVICE_BOOL_FIELDS:
+            return "false" if str(value).lower() in ("0", "false") else "true"
+    elif key in BOOL_KEYS:
+        return "false" if str(value).lower() in ("0", "false") else "true"
     try:
         return str(int(value))
     except ValueError:
@@ -83,6 +118,17 @@ def to_lua_value(key, value):
 
 
 def to_lua_line(key, value):
+    """Generate a Lua config line for the given key/value pair.
+
+    For device[name]:field keys, emits an hl.device({...}) block.
+    For normal keys, emits an hl.config({...}) block.
+    """
+    dev = _parse_device_key(key)
+    if dev:
+        device_name, field = dev
+        val = to_lua_value(key, value)
+        return f'hl.device({{ name = "{device_name}", {field} = {val} }})\n'
+
     parts = key.replace(":", ".").split(".")
     val = to_lua_value(key, value)
     inner = f"{{ {parts[-1]} = {val} }}"
@@ -92,6 +138,16 @@ def to_lua_line(key, value):
 
 
 def make_marker(key):
+    """Return a substring that uniquely identifies the line for a key.
+
+    For device[name]:field keys, matches the hl.device(... name = "...", field =
+    pattern so we can update/remove it in the overrides file.
+    """
+    dev = _parse_device_key(key)
+    if dev:
+        device_name, field = dev
+        return f'name = "{device_name}", {field} ='
+
     parts = key.replace(":", ".").split(".")
 
     fragment = " = { ".join(parts[:-1])
@@ -177,6 +233,7 @@ if __name__ == "__main__":
 
     if args.anim_preset:
         save_preset(os.path.expanduser(args.anim_file), args.anim_preset)
+        subprocess.run(["hyprctl", "reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     raw_sets   = args.set or []
     reset_keys = args.reset or []
@@ -189,5 +246,10 @@ if __name__ == "__main__":
 
     if set_pairs or reset_keys:
         edit_lua(os.path.expanduser(args.file), set_pairs, reset_keys)
+        for k, v in set_pairs:
+            lua_code = to_lua_line(k, v).strip()
+            subprocess.run(["hyprctl", "eval", lua_code], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if reset_keys:
+            subprocess.run(["hyprctl", "reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     elif not args.anim_preset:
         print("Error: specify --set, --reset, or --anim-preset")

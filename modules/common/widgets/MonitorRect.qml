@@ -28,11 +28,11 @@ Rectangle {
     property int snappedY: 0
     property real snapThreshold: 12
 
-    property int logW: monitorConfig?.logicalWidth(monitor) ?? 0
-    property int logH: monitorConfig?.logicalHeight(monitor) ?? 0
+    property int logW: Math.max(200, monitorConfig?.logicalWidth(monitor) ?? 1920)
+    property int logH: Math.max(200, monitorConfig?.logicalHeight(monitor) ?? 1080)
 
-    x: isDragging ? dragX : (previewPositions[monitor.name]?.x ?? monitor.x) * scaleFactor + canvasOffset.x
-    y: isDragging ? dragY : (previewPositions[monitor.name]?.y ?? monitor.y) * scaleFactor + canvasOffset.y
+    x: isDragging ? dragX : (previewPositions[monitor.name]?.x ?? monitor.x ?? 0) * scaleFactor + canvasOffset.x
+    y: isDragging ? dragY : (previewPositions[monitor.name]?.y ?? monitor.y ?? 0) * scaleFactor + canvasOffset.y
     width:  logW * scaleFactor
     height: logH * scaleFactor
 
@@ -106,7 +106,7 @@ Rectangle {
     }
 
     function snapPosition(px, py) {
-        let sx = px, sy = py
+        let sx = Math.max(0, px), sy = Math.max(0, py)
         const thresh = snapThreshold / scaleFactor
         for (let i = 0; i < allMonitors.length; i++) {
             if (i === monitorIndex) continue
@@ -114,14 +114,14 @@ Rectangle {
             if (other.disabled) continue
             const ow = monitorConfig.logicalWidth(other)
             const oh = monitorConfig.logicalHeight(other)
-            if (Math.abs(px - other.x) < thresh)                 sx = other.x
-            if (Math.abs(px - (other.x + ow)) < thresh)          sx = other.x + ow
-            if (Math.abs((px + logW) - other.x) < thresh)        sx = other.x - logW
-            if (Math.abs((px + logW) - (other.x + ow)) < thresh) sx = other.x + ow - logW
-            if (Math.abs(py - other.y) < thresh)                 sy = other.y
-            if (Math.abs(py - (other.y + oh)) < thresh)          sy = other.y + oh
-            if (Math.abs((py + logH) - other.y) < thresh)        sy = other.y - logH
-            if (Math.abs((py + logH) - (other.y + oh)) < thresh) sy = other.y + oh - logH
+            if (Math.abs(px - other.x) < thresh)                 sx = Math.max(0, other.x)
+            if (Math.abs(px - (other.x + ow)) < thresh)          sx = Math.max(0, other.x + ow)
+            if (Math.abs((px + logW) - other.x) < thresh)        sx = Math.max(0, other.x - logW)
+            if (Math.abs((px + logW) - (other.x + ow)) < thresh) sx = Math.max(0, other.x + ow - logW)
+            if (Math.abs(py - other.y) < thresh)                 sy = Math.max(0, other.y)
+            if (Math.abs(py - (other.y + oh)) < thresh)          sy = Math.max(0, other.y + oh)
+            if (Math.abs((py + logH) - other.y) < thresh)        sy = Math.max(0, other.y - logH)
+            if (Math.abs((py + logH) - (other.y + oh)) < thresh) sy = Math.max(0, other.y + oh - logH)
         }
         return Qt.point(sx, sy)
     }
@@ -130,40 +130,49 @@ Rectangle {
         id: hoverArea
         anchors.fill: parent
         hoverEnabled: true
-        enabled: !monitor.disabled
-        cursorShape: monitor.disabled ? Qt.ArrowCursor
+        enabled: true
+        cursorShape: monitor.disabled ? Qt.PointingHandCursor
             : (root.isDragging ? Qt.ClosedHandCursor : Qt.OpenHandCursor)
-        drag.target: root
+        drag.target: monitor.disabled ? null : root
         drag.axis: Drag.XAndYAxis
         drag.threshold: 4
 
         onPressed: {
-            root.dragX = monitor.x * root.scaleFactor + root.canvasOffset.x
-            root.dragY = monitor.y * root.scaleFactor + root.canvasOffset.y
-            root.snappedX = monitor.x
-            root.snappedY = monitor.y
+            if (monitor.disabled) return
+            root.dragX = (monitor.x ?? 0) * root.scaleFactor + root.canvasOffset.x
+            root.dragY = (monitor.y ?? 0) * root.scaleFactor + root.canvasOffset.y
+            root.snappedX = monitor.x ?? 0
+            root.snappedY = monitor.y ?? 0
             root.isDragging = true
         }
 
         onPositionChanged: {
-            if (!root.isDragging) return
+            if (!root.isDragging || monitor.disabled) return
             root.dragX = root.x
             root.dragY = root.y
             const realX = Math.round((root.x - root.canvasOffset.x) / root.scaleFactor)
             const realY = Math.round((root.y - root.canvasOffset.y) / root.scaleFactor)
             const snapped = root.snapPosition(realX, realY)
-            root.snappedX = snapped.x
-            root.snappedY = snapped.y
+            root.snappedX = Math.max(0, snapped.x)
+            root.snappedY = Math.max(0, snapped.y)
             root.positionDragging(root.monitorIndex, root.snappedX, root.snappedY)
         }
 
         onReleased: {
+            if (monitor.disabled) {
+                root.monitorClicked(root.monitorIndex)
+                return
+            }
             root.isDragging = false
-            if (root.snappedX === monitor.x && root.snappedY === monitor.y) {
+            if (root.snappedX === (monitor.x ?? 0) && root.snappedY === (monitor.y ?? 0)) {
                 root.monitorClicked(root.monitorIndex)
                 return
             }
             root.positionCommitted(root.monitorIndex, root.snappedX, root.snappedY)
+        }
+
+        onClicked: {
+            root.monitorClicked(root.monitorIndex)
         }
     }
 }
