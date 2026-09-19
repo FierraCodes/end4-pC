@@ -207,11 +207,15 @@ Singleton {
 
             if (exitCode !== 0) {
                 const err = connectStderr.text.trim() || connectStdout.text.trim();
+                const lowerErr = err.toLowerCase();
                 const isAuthError = err.includes("No valid secrets") ||
                                     err.includes("cannot ask without '--ask'") ||
                                     err.includes("Secrets were required") ||
                                     err.includes("password for") ||
-                                    err.includes("failed verification");
+                                    err.includes("failed verification") ||
+                                    lowerErr.includes("secret") ||
+                                    lowerErr.includes("password") ||
+                                    lowerErr.includes("credential");
 
                 if (isAuthError && uuid) {
                     const newMap = Object.assign({}, root.authRequiredUuids);
