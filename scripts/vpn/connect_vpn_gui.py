@@ -7,6 +7,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 
 ANSI_ESCAPE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
@@ -20,6 +21,182 @@ def has_cmd(cmd: str) -> bool:
 
 USE_KDIALOG = has_cmd('kdialog')
 USE_ZENITY = has_cmd('zenity')
+
+def find_openconnect_auth_dialog() -> str | None:
+    candidates = [
+        "/usr/lib/nm-openconnect-auth-dialog",
+        "/usr/libexec/nm-openconnect-auth-dialog",
+        "/usr/lib/NetworkManager/nm-openconnect-auth-dialog",
+        shutil.which("nm-openconnect-auth-dialog"),
+    ]
+    for c in candidates:
+        if c and os.path.isfile(c) and os.access(c, os.X_OK):
+            return c
+    return None
+
+def get_connection_details(target: str) -> tuple[str, str, str]:
+    """Returns (uuid, name, service_type)"""
+    try:
+        res = subprocess.run(
+            ["nmcli", "-g", "connection.uuid,connection.id,vpn.service-type", "connection", "show", target],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        lines = [l.strip() for l in res.stdout.strip().splitlines() if l.strip()]
+        if len(lines) >= 3:
+            return lines[0], lines[1], lines[2]
+        elif len(lines) == 2:
+            return lines[0], lines[1], ""
+    except Exception:
+        pass
+    return target, target, ""
+
+def get_vpn_config(uuid: str) -> tuple[dict[str, str], dict[str, str]]:
+    """Gets (data_dict, secrets_dict) for the VPN connection"""
+    data = {}
+    secrets = {}
+
+    try:
+        import gi
+        gi.require_version("NM", "1.0")
+        from gi.repository import NM
+        client = NM.Client.new(None)
+        con = client.get_connection_by_uuid(uuid) or client.get_connection_by_id(uuid)
+        if con:
+            s_vpn = con.get_setting_vpn()
+            if s_vpn:
+                s_vpn.foreach_data_item(lambda k, v: data.update({k: v}))
+                s_vpn.foreach_secret(lambda k, v: secrets.update({k: v}))
+                return data, secrets
+    except Exception:
+        pass
+
+    try:
+        res = subprocess.run(
+            ["nmcli", "-s", "-g", "vpn.data", "connection", "show", uuid],
+            capture_output=True, text=True
+        )
+        raw = res.stdout.strip()
+        if raw:
+            items = re.split(r"(?<!\\),\s*", raw)
+            for item in items:
+                if "=" in item:
+                    k, v = item.split("=", 1)
+                    k = k.strip().replace(r"\:", ":").replace(r"\,", ",")
+                    v = v.strip().replace(r"\:", ":").replace(r"\,", ",")
+                    data[k] = v
+    except Exception:
+        pass
+
+    return data, secrets
+
+def handle_openconnect(uuid: str, vpn_name: str) -> int:
+    auth_dialog = find_openconnect_auth_dialog()
+    if not auth_dialog:
+        return -1
+
+    data, secrets = get_vpn_config(uuid)
+    if not data or "gateway" not in data:
+        return -1
+
+    payload_lines = []
+    for k, v in data.items():
+        payload_lines.append(f"DATA_KEY={k}\nDATA_VAL={v}\n")
+    for k, v in secrets.items():
+        payload_lines.append(f"SECRET_KEY={k}\nSECRET_VAL={v}\n")
+    payload_lines.append("DONE\n")
+    payload = "".join(payload_lines)
+
+    cmd = [
+        auth_dialog,
+        "-u", uuid,
+        "-n", vpn_name,
+        "-s", "org.freedesktop.NetworkManager.openconnect",
+        "-i"
+    ]
+
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1
+        )
+    except Exception as e:
+        print(f"Failed to launch openconnect auth dialog: {e}", file=sys.stderr)
+        return -1
+
+    try:
+        proc.stdin.write(payload)
+        proc.stdin.flush()
+    except Exception as e:
+        print(f"Failed to pipe config to auth dialog: {e}", file=sys.stderr)
+        proc.kill()
+        return 1
+
+    received_lines = []
+    while True:
+        if proc.poll() is not None:
+            for line in proc.stdout:
+                line = line.rstrip('\r\n')
+                if line == "":
+                    break
+                received_lines.append(line)
+            break
+
+        r, _, _ = select.select([proc.stdout], [], [], 0.3)
+        if not r:
+            continue
+        line = proc.stdout.readline()
+        if not line:
+            break
+        line = line.rstrip('\r\n')
+        if line == "":
+            break
+        received_lines.append(line)
+
+    try:
+        proc.stdin.write("QUIT\n")
+        proc.stdin.flush()
+        proc.stdin.close()
+    except Exception:
+        pass
+
+    try:
+        proc.wait(timeout=2)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+
+    output_secrets = {}
+    for i in range(0, len(received_lines) - 1, 2):
+        k = received_lines[i]
+        v = received_lines[i + 1]
+        output_secrets[k] = v
+
+    if not output_secrets:
+        return 130
+
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, prefix='nm_vpn_pw_') as tf:
+            temp_path = tf.name
+            os.chmod(temp_path, 0o600)
+            for k, v in output_secrets.items():
+                tf.write(f"vpn.secrets.{k}:{v}\n")
+
+        res = subprocess.run([
+            'nmcli', 'connection', 'up', 'uuid', uuid, 'passwd-file', temp_path
+        ])
+        return res.returncode
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
 
 def dialog_yesno(title: str, text: str) -> bool:
     if USE_KDIALOG:
@@ -77,6 +254,16 @@ def main():
 
     target = sys.argv[1]
     vpn_name = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] else target
+
+    uuid, resolved_name, service_type = get_connection_details(target)
+    if not vpn_name or vpn_name == target:
+        vpn_name = resolved_name
+
+    if service_type == "org.freedesktop.NetworkManager.openconnect":
+        ret = handle_openconnect(uuid, vpn_name)
+        if ret != -1:
+            sys.exit(ret)
+
     window_title = f"VPN Authentication - {vpn_name}"
 
     if not USE_KDIALOG and not USE_ZENITY:
