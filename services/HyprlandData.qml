@@ -89,13 +89,19 @@ Singleton {
         updateAll();
     }
 
+    Timer {
+        id: updateDebounce
+        interval: 60
+        onTriggered: root.updateAll()
+    }
+
     Connections {
         target: Hyprland
         enabled: WM.compositor === "hyprland"
 
         function onRawEvent(event) {
             if (["openlayer", "closelayer", "screencast"].includes(event.name)) return;
-            updateAll()
+            updateDebounce.restart();
         }
     }
 
