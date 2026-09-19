@@ -92,7 +92,10 @@ Singleton {
         root.data = temp
     }
 
+    readonly property bool weatherEnabled: (Config.options.bar.weather.enable || Config.options.background.widgets.weather.enable)
+
     function getData() {
+        if (!root.weatherEnabled) return
         let apiKey = "8b05d62206f459e1d298cbe5844d7d87"
 
         if (apiKey === "") {
@@ -112,9 +115,7 @@ Singleton {
         url += `&units=${units}`
         url += `&appid=${apiKey}`
 
-        let command = `curl -s "${url}"`
-
-        fetcher.command[2] = command
+        fetcher.command = ["curl", "-s", url]
         fetcher.running = true
     }
 
@@ -123,14 +124,14 @@ Singleton {
     }
 
     Component.onCompleted: {
-        if (!root.gpsActive) return
+        if (!root.weatherEnabled || !root.gpsActive) return
         console.info("[WeatherService] Starting GPS service.")
         positionSource.start()
     }
 
     Process {
         id: fetcher
-        command: ["bash", "-c", ""]
+        command: ["curl", "-s", ""]
         stdout: StdioCollector {
             onStreamFinished: {
                 if (text.length === 0)
@@ -179,10 +180,10 @@ Singleton {
     }
 
     Timer {
-        running: !root.gpsActive
+        running: root.weatherEnabled && !root.gpsActive
         repeat: true
         interval: root.fetchInterval
-        triggeredOnStart: !root.gpsActive
+        triggeredOnStart: root.weatherEnabled && !root.gpsActive
         onTriggered: root.getData()
     }
 }

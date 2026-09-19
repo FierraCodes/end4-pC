@@ -40,12 +40,23 @@ Singleton {
     property list<real> diskUsageHistory: []
     property string maxAvailableDiskString: kbToGbString(diskTotal)
 
+    property int _diskUpdateCounter: 0
+
     Process {
         id: tempProc
-        command: ["bash", "-c", "sensors 2>/dev/null | grep -E 'Package id 0|Tctl|Tdie' | grep -oP '\\+\\K[0-9.]+(?=°C)' | head -1"]
+        command: ["bash", "-c", `
+            for h in /sys/class/hwmon/hwmon*; do
+                if [ -f "$h/name" ] && grep -qE 'k10temp|coretemp|cpu' "$h/name" 2>/dev/null; then
+                    cat "$h/temp1_input" 2>/dev/null && exit 0
+                fi
+            done
+            sensors 2>/dev/null | grep -E 'Package id 0|Tctl|Tdie' | grep -oP '\\+\\K[0-9.]+(?=°C)' | head -1
+        `]
         stdout: StdioCollector {
             onStreamFinished: {
-                root.cpuTemp = parseFloat(text.trim())
+                let val = parseFloat(text.trim())
+                if (val > 1000) val /= 1000.0
+                if (!isNaN(val)) root.cpuTemp = Math.round(val * 10) / 10
             }
         }
     }
@@ -72,8 +83,12 @@ Singleton {
         onTriggered: {
             tempProc.running = false
             tempProc.running = true
-            diskProc.running = false
-            diskProc.running = true
+            root._diskUpdateCounter++
+            if (root._diskUpdateCounter >= 10 || root.diskTotal <= 1) {
+                root._diskUpdateCounter = 0
+                diskProc.running = false
+                diskProc.running = true
+            }
         }
     }
 
