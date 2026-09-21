@@ -2,7 +2,6 @@ import QtQuick
 import Quickshell
 
 import qs.modules.common
-import qs.services
 import qs.modules.ii.background
 import qs.modules.ii.bar
 import qs.modules.ii.dock
@@ -40,7 +39,7 @@ Scope {
     PanelLoader { component: Overview {} }
     PanelLoader { component: Polkit {} }
     PanelLoader { component: RegionSelector {} }
-    PanelLoader { extraCondition: Config.options.appearance.fakeScreenRounding !== 0; component: ScreenCorners {} }
+    PanelLoader { component: ScreenCorners {} }
     PanelLoader { component: ScreenTranslator {} }
     PanelLoader { component: SessionScreen {} }
     PanelLoader { component: SidebarLeft {} }
@@ -49,7 +48,7 @@ Scope {
     PanelLoader { component: WallpaperSelector {} }
     PanelLoader { component: Settings {} }
     PanelLoader { component: DesktopMenu {} }
-    PanelLoader { extraCondition: GlobalStates.dropShelfOpen; component: DropShelfPanel {} }
-    PanelLoader { extraCondition: WM.compositor === "niri"; component: NiriBackdrop {} }
-    PanelLoader { extraCondition: Config.options.bar.showFrame; component: ScreenFrame {} }
+    PanelLoader { component: DropShelfPanel {} }
+    PanelLoader { component: NiriBackdrop {} }
+    PanelLoader { component: ScreenFrame {} }
 }

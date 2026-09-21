@@ -40,7 +40,6 @@ Scope {
     FolderListModel {
         id: wallpaperFolder
         folder: {
-            if (!GlobalStates.desktopMenuOpen) return ""
             const wallPath = Config.options.background.wallpaperPath
             if (!wallPath || wallPath.length === 0) return ""
             const lastSlash = wallPath.lastIndexOf("/")
