@@ -38,7 +38,9 @@ ContentPage {
 
     Component.onCompleted: {
         const h = Config.options.hyprland
-        HyprlandConfig.setMany({
+        // One setMany for everything: separate calls would be separate
+        // processes racing to rewrite the same overrides file.
+        HyprlandConfig.setMany(Object.assign({
             "decoration:rounding":                  h.decoration.rounding,
             "decoration:blur:enabled":              h.decoration.blur.enabled ? 1 : 0,
             "decoration:blur:size":                 h.decoration.blur.size,
@@ -59,9 +61,12 @@ ContentPage {
             "input:touchpad:disable_while_typing":  h.input.touchpad.disableWhileTyping ? 1 : 0,
             "input:touchpad:clickfinger_behavior":  h.input.touchpad.clickfingerBehavior ? 1 : 0,
             "input:touchpad:scroll_factor":         h.input.touchpad.scrollFactor
-        })
+        }, HyprlandConfig.borderColorEntries()))
     }
     MonitorConfigOption { id: monitorConfig }
+
+    // Same roles as the settings panel border color on the Interface page.
+    readonly property var borderColorRoles: ["primary", "secondary", "tertiary", "primaryContainer", "secondaryContainer", "tertiaryContainer", "layer0Border"]
 
     ColumnLayout {
         id: mainLayout
@@ -92,6 +97,7 @@ ContentPage {
                     ConfigSwitch {
                         buttonIcon: "tv_off"
                         text: Translation.tr("Enabled")
+                        enabled: monitorConfig.monitors.length > 1
                         checked: !(monitorConfig.monitors[monitorCanvas.selectedIndex]?.disabled ?? false)
                         onCheckedChanged: {
                             if (checked === !(monitorConfig.monitors[monitorCanvas.selectedIndex]?.disabled ?? false)) return
@@ -173,7 +179,178 @@ ContentPage {
                             monitorConfig.applyAndSave(monitorCanvas.selectedIndex)
                         }
                     }
-                }        
+                }
+            }
+
+            ContentSubsection {
+                Layout.topMargin: 10
+                title: Translation.tr("HDR & Color Management")
+
+                NoticeBox {
+                    Layout.fillWidth: true
+                    visible: monitorConfig.monitors[monitorCanvas.selectedIndex]?.hdrSupported === null
+                    text: Translation.tr("Couldn't confirm this display's HDR capability from its EDID. Options are shown but may not do anything.")
+                }
+
+                NoticeBox {
+                    Layout.fillWidth: true
+                    visible: monitorConfig.monitors[monitorCanvas.selectedIndex]?.hdrSupported === false
+                    text: Translation.tr("This display's EDID does not report HDR support, so HDR options are disabled here. Open an issue in GitHub if you think this is a mistake.")
+                }
+
+                GroupedList {
+                    ConfigSelectionArray {
+                        text: Translation.tr("Bit depth")
+                        icon: "gradient"
+                        currentValue: monitorConfig.monitors[monitorCanvas.selectedIndex]?.bitdepth
+                            ?? (monitorConfig.monitors[monitorCanvas.selectedIndex]?.maxBpc ?? 8)
+                        onSelected: newValue => {
+                            monitorConfig.updateMonitor(monitorCanvas.selectedIndex, { bitdepth: newValue })
+                            monitorConfig.saveHdr(monitorCanvas.selectedIndex)
+                        }
+                        options: (() => {
+                            const maxBpc = monitorConfig.monitors[monitorCanvas.selectedIndex]?.maxBpc ?? 8
+                            return [
+                                { displayName: "8-bit",  icon: "filter_8", value: 8  },
+                                { displayName: "10-bit", icon: "palette",   value: 10 },
+                                { displayName: "12-bit", icon: "hdr_on",   value: 12 },
+                            ].filter(o => o.value <= maxBpc)
+                        })()
+                    }
+
+                    ConfigComboBox {
+                        Layout.fillWidth: true
+                        buttonIcon: "palette"
+                        text: Translation.tr("Color management")
+                        enabled: monitorConfig.monitors[monitorCanvas.selectedIndex]?.hdrSupported !== false
+                        model: [
+                            { displayName: Translation.tr("Auto"),       icon: "auto_awesome",  value: "auto"    },
+                            { displayName: "sRGB",                       icon: "light_mode",    value: "srgb"    },
+                            { displayName: Translation.tr("Wide (P3)"),  icon: "wb_iridescent", value: "wide"    },
+                            { displayName: "HDR",                        icon: "hdr_on",        value: "hdr"     },
+                            { displayName: Translation.tr("HDR (EDID)"), icon: "hdr_auto",      value: "hdredid" },
+                        ]
+                        currentValue: monitorConfig.monitors[monitorCanvas.selectedIndex]?.cm ?? "auto"
+                        onSelected: newValue => {
+                            monitorConfig.updateMonitor(monitorCanvas.selectedIndex, { cm: newValue })
+                            monitorConfig.saveHdr(monitorCanvas.selectedIndex)
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        ConfigSpinBox {
+                            Layout.fillWidth: true
+                            enabled: monitorConfig.monitors[monitorCanvas.selectedIndex]?.cm === "hdr" || monitorConfig.monitors[monitorCanvas.selectedIndex]?.cm === "hdredid"
+                            icon: "brightness_6"
+                            text: Translation.tr("SDR brightness")
+                            value: Math.round((monitorConfig.monitors[monitorCanvas.selectedIndex]?.sdrBrightness ?? 1.0) * 100)
+                            from: 10; to: 300; stepSize: 5
+                            onValueChanged: {
+                                const newVal = value / 100.0
+                                if (newVal === (monitorConfig.monitors[monitorCanvas.selectedIndex]?.sdrBrightness ?? 1.0)) return
+                                monitorConfig.updateMonitor(monitorCanvas.selectedIndex, { sdrBrightness: newVal })
+                                monitorConfig.saveHdr(monitorCanvas.selectedIndex)
+                            }
+                        }
+
+                        ConfigSpinBox {
+                            Layout.fillWidth: true
+                            enabled: monitorConfig.monitors[monitorCanvas.selectedIndex]?.cm === "hdr" || monitorConfig.monitors[monitorCanvas.selectedIndex]?.cm === "hdredid"
+                            icon: "contrast"
+                            text: Translation.tr("SDR saturation")
+                            value: Math.round((monitorConfig.monitors[monitorCanvas.selectedIndex]?.sdrSaturation ?? 1.0) * 100)
+                            from: 10; to: 200; stepSize: 5
+                            onValueChanged: {
+                                const newVal = value / 100.0
+                                if (newVal === (monitorConfig.monitors[monitorCanvas.selectedIndex]?.sdrSaturation ?? 1.0)) return
+                                monitorConfig.updateMonitor(monitorCanvas.selectedIndex, { sdrSaturation: newVal })
+                                monitorConfig.saveHdr(monitorCanvas.selectedIndex)
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        ConfigSpinBox {
+                            Layout.fillWidth: true
+                            icon: "wb_twilight"
+                            text: Translation.tr("SDR min (nits)")
+                            value: monitorConfig.monitors[monitorCanvas.selectedIndex]?.sdrMinLuminance ?? 0
+                            from: 0; to: 100; stepSize: 1
+                            enabled: monitorConfig.monitors[monitorCanvas.selectedIndex]?.cm === "hdr" || monitorConfig.monitors[monitorCanvas.selectedIndex]?.cm === "hdredid"
+                            onValueChanged: {
+                                if (value === (monitorConfig.monitors[monitorCanvas.selectedIndex]?.sdrMinLuminance ?? 0)) return
+                                monitorConfig.updateMonitor(monitorCanvas.selectedIndex, { sdrMinLuminance: value })
+                                monitorConfig.saveHdr(monitorCanvas.selectedIndex)
+                            }
+                        }
+
+                        ConfigSpinBox {
+                            Layout.fillWidth: true
+                            icon: "wb_sunny"
+                            text: Translation.tr("SDR max (nits)")
+                            value: monitorConfig.monitors[monitorCanvas.selectedIndex]?.sdrMaxLuminance ?? 250
+                            from: 50; to: 2000; stepSize: 10
+                            enabled: monitorConfig.monitors[monitorCanvas.selectedIndex]?.cm === "hdr" || monitorConfig.monitors[monitorCanvas.selectedIndex]?.cm === "hdredid"
+                            onValueChanged: {
+                                if (value === (monitorConfig.monitors[monitorCanvas.selectedIndex]?.sdrMaxLuminance ?? 250)) return
+                                monitorConfig.updateMonitor(monitorCanvas.selectedIndex, { sdrMaxLuminance: value })
+                                monitorConfig.saveHdr(monitorCanvas.selectedIndex)
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        ConfigSpinBox {
+                            Layout.fillWidth: true
+                            icon: "nightlight"
+                            text: Translation.tr("HDR min (nits)")
+                            value: monitorConfig.monitors[monitorCanvas.selectedIndex]?.minLuminance ?? 0
+                            from: 0; to: 100; stepSize: 1
+                            enabled: monitorConfig.monitors[monitorCanvas.selectedIndex]?.cm === "hdr" || monitorConfig.monitors[monitorCanvas.selectedIndex]?.cm === "hdredid"
+                            onValueChanged: {
+                                if (value === (monitorConfig.monitors[monitorCanvas.selectedIndex]?.minLuminance ?? 0)) return
+                                monitorConfig.updateMonitor(monitorCanvas.selectedIndex, { minLuminance: value })
+                                monitorConfig.saveHdr(monitorCanvas.selectedIndex)
+                            }
+                        }
+
+                        ConfigSpinBox {
+                            Layout.fillWidth: true
+                            icon: "hdr_strong"
+                            text: Translation.tr("HDR peak (nits)")
+                            value: monitorConfig.monitors[monitorCanvas.selectedIndex]?.maxLuminance ?? 1000
+                            from: 100; to: 10000; stepSize: 50
+                            enabled: monitorConfig.monitors[monitorCanvas.selectedIndex]?.cm === "hdr" || monitorConfig.monitors[monitorCanvas.selectedIndex]?.cm === "hdredid"
+                            onValueChanged: {
+                                if (value === (monitorConfig.monitors[monitorCanvas.selectedIndex]?.maxLuminance ?? 1000)) return
+                                monitorConfig.updateMonitor(monitorCanvas.selectedIndex, { maxLuminance: value })
+                                monitorConfig.saveHdr(monitorCanvas.selectedIndex)
+                            }
+                        }
+                    }
+
+                    ConfigSpinBox {
+                        icon: "hdr_weak"
+                        text: Translation.tr("HDR max average luminance (nits)")
+                        value: monitorConfig.monitors[monitorCanvas.selectedIndex]?.maxAvgLuminance ?? 250
+                        from: 50; to: 5000; stepSize: 10
+                        enabled: monitorConfig.monitors[monitorCanvas.selectedIndex]?.cm === "hdr" || monitorConfig.monitors[monitorCanvas.selectedIndex]?.cm === "hdredid"
+                        onValueChanged: {
+                            if (value === (monitorConfig.monitors[monitorCanvas.selectedIndex]?.maxAvgLuminance ?? 250)) return
+                            monitorConfig.updateMonitor(monitorCanvas.selectedIndex, { maxAvgLuminance: value })
+                            monitorConfig.saveHdr(monitorCanvas.selectedIndex)
+                        }
+                    }
+                }
             }
         }
 
@@ -334,6 +511,130 @@ ContentPage {
             }
         }
 
+        // Idle
+        ContentSection {
+            id: idleSection
+            icon: "timer"
+            shape: MaterialShape.Shape.Cookie12Sided
+            title: Translation.tr("Idle")
+
+            readonly property list<var> unitOptions: [
+                { displayName: Translation.tr("Seconds"), icon: "timer",    value: 1    },
+                { displayName: Translation.tr("Minutes"), icon: "av_timer", value: 60   },
+                { displayName: Translation.tr("Hours"),   icon: "schedule", value: 3600 },
+            ]
+
+            component IdleTimerRow: ConfigRow {
+                id: timerRow
+
+                property string icon
+                property string label
+                property int seconds: 0
+                property int displayValue: 60
+                property int displayUnit: 60
+                property bool loaded: false
+
+                signal edited(int newSeconds)
+
+                onSecondsChanged: {
+                    const display = idleSection.toDisplay(timerRow.seconds)
+                    timerRow.displayValue = display[0]
+                    timerRow.displayUnit = display[1]
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+                    Layout.leftMargin: 8
+                    OptionalMaterialSymbol {
+                        icon: timerRow.icon
+                        iconSize: Appearance.font.pixelSize.larger
+                    }
+                    StyledText {
+                        Layout.preferredWidth: 160
+                        text: timerRow.label
+                        color: Appearance.colors.colOnSecondaryContainer
+                        elide: Text.ElideRight
+                    }
+                    Item { Layout.fillWidth: true }
+                    StyledSpinBox {
+                        Layout.preferredWidth: 130
+                        value: timerRow.displayValue
+                        from: 0
+                        to: 9999
+                        stepSize: 1
+                        onValueChanged: {
+                            if (!timerRow.loaded) return
+                            timerRow.displayValue = value
+                            timerRow.edited(value * timerRow.displayUnit)
+                        }
+                    }
+                }
+                StyledComboBox {
+                    Layout.preferredWidth: 140
+                    Layout.alignment: Qt.AlignVCenter
+                    textRole: "displayName"
+                    model: idleSection.unitOptions
+                    currentIndex: idleSection.unitOptions.findIndex(o => o.value === timerRow.displayUnit)
+                    onActivated: index => {
+                        timerRow.displayUnit = idleSection.unitOptions[index].value
+                        timerRow.edited(timerRow.displayValue * timerRow.displayUnit)
+                    }
+                }
+            }
+
+            function toDisplay(seconds) {
+                if (seconds <= 0)
+                    return [0, 60]
+                if (seconds % 3600 === 0)
+                    return [seconds / 3600, 3600]
+                if (seconds % 60 === 0)
+                    return [seconds / 60, 60]
+                return [seconds, 1]
+            }
+
+            function applyIdle() {
+                HyprlandConfig.setIdle(
+                    Config.options.hyprland.idle.lock,
+                    Config.options.hyprland.idle.screenOff,
+                    Config.options.hyprland.idle.suspend
+                )
+            }
+
+            GroupedList {
+                IdleTimerRow {
+                    icon: "lock_clock"
+                    label: Translation.tr("Lock screen")
+                    seconds: Config.options.hyprland.idle.lock
+                    onEdited: newSeconds => {
+                        Config.options.hyprland.idle.lock = newSeconds
+                        idleSection.applyIdle()
+                    }
+                    Component.onCompleted: loaded = true
+                }
+                IdleTimerRow {
+                    icon: "monitor"
+                    label: Translation.tr("Screen off")
+                    seconds: Config.options.hyprland.idle.screenOff
+                    onEdited: newSeconds => {
+                        Config.options.hyprland.idle.screenOff = newSeconds
+                        idleSection.applyIdle()
+                    }
+                    Component.onCompleted: loaded = true
+                }
+                IdleTimerRow {
+                    icon: "bedtime"
+                    label: Translation.tr("Standby")
+                    seconds: Config.options.hyprland.idle.suspend
+                    onEdited: newSeconds => {
+                        Config.options.hyprland.idle.suspend = newSeconds
+                        idleSection.applyIdle()
+                    }
+                    Component.onCompleted: loaded = true
+                }
+            }
+        }
+
         // Visual & Aesthetics
         ContentSection {
             icon: "deblur"
@@ -389,18 +690,6 @@ ContentPage {
                 }
 
                 ConfigSpinBox {
-                    icon: "border_outer"
-                    text: Translation.tr("Border Size")
-                    value: Config.options.hyprland.general.borderSize
-                    from: 0; to: 10; stepSize: 1
-                    onValueChanged: {
-                        if (value === Config.options.hyprland.general.borderSize) return
-                        Config.options.hyprland.general.borderSize = value
-                        HyprlandConfig.set("general:border_size", value)
-                    }
-                }
-
-                ConfigSpinBox {
                     icon: "margin"
                     text: Translation.tr("Gaps In")
                     value: Config.options.hyprland.general.gapsIn
@@ -447,6 +736,87 @@ ContentPage {
                         if (newVal === Config.options.hyprland.decoration.inactiveOpacity) return
                         Config.options.hyprland.decoration.inactiveOpacity = newVal
                         HyprlandConfig.set("decoration:inactive_opacity", newVal)
+                    }
+                }
+                ConfigSpinBox {
+                    icon: "border_outer"
+                    text: Translation.tr("Border Size")
+                    value: Config.options.hyprland.general.borderSize
+                    from: 0; to: 10; stepSize: 1
+                    onValueChanged: {
+                        if (value === Config.options.hyprland.general.borderSize) return
+                        Config.options.hyprland.general.borderSize = value
+                        HyprlandConfig.set("general:border_size", value)
+                    }
+                }
+
+                ConfigSwitch {
+                    buttonIcon: "format_paint"
+                    text: Translation.tr("Custom border colors")
+                    checked: Config.options.hyprland.general.borderColor.enable
+                    onCheckedChanged: {
+                        if (checked === Config.options.hyprland.general.borderColor.enable) return
+                        Config.options.hyprland.general.borderColor.enable = checked
+                        if (checked) HyprlandConfig.applyBorderColors()
+                        else HyprlandConfig.resetBorderColors()
+                    }
+                }
+            }
+            
+
+            ContentSubsection {
+                Layout.topMargin: 10
+                visible: Config.options.hyprland.general.borderColor.enable
+                title: Translation.tr("Border Color Management")
+                GroupedList {
+                    visible: Config.options.hyprland.general.borderColor.enable
+
+                    ColorSelectionArray {
+                        icon: "border_color"
+                        text: Translation.tr("Active border")
+                        options: page.borderColorRoles
+                        currentValue: Config.options.hyprland.general.borderColor.activeRole
+                        onSelected: newValue => {
+                            Config.options.hyprland.general.borderColor.activeRole = newValue
+                            HyprlandConfig.applyBorderColors()
+                        }
+                    }
+
+                    ConfigSpinBox {
+                        icon: "opacity"
+                        text: Translation.tr("Active border opacity")
+                        value: Math.round(Config.options.hyprland.general.borderColor.activeOpacity * 100)
+                        from: 0; to: 100; stepSize: 5
+                        onValueChanged: {
+                            // Compared as integers: the spin box only holds whole percents.
+                            if (value === Math.round(Config.options.hyprland.general.borderColor.activeOpacity * 100)) return
+                            Config.options.hyprland.general.borderColor.activeOpacity = value / 100.0
+                            HyprlandConfig.applyBorderColors()
+                        }
+                    }
+
+                    ColorSelectionArray {
+                        icon: "border_color"
+                        text: Translation.tr("Inactive border")
+                        options: page.borderColorRoles
+                        currentValue: Config.options.hyprland.general.borderColor.inactiveRole
+                        onSelected: newValue => {
+                            Config.options.hyprland.general.borderColor.inactiveRole = newValue
+                            HyprlandConfig.applyBorderColors()
+                        }
+                    }
+
+                    ConfigSpinBox {
+                        icon: "opacity"
+                        text: Translation.tr("Inactive border opacity")
+                        value: Math.round(Config.options.hyprland.general.borderColor.inactiveOpacity * 100)
+                        from: 0; to: 100; stepSize: 5
+                        onValueChanged: {
+                            // Compared as integers: the spin box only holds whole percents.
+                            if (value === Math.round(Config.options.hyprland.general.borderColor.inactiveOpacity * 100)) return
+                            Config.options.hyprland.general.borderColor.inactiveOpacity = value / 100.0
+                            HyprlandConfig.applyBorderColors()
+                        }
                     }
                 }
             }

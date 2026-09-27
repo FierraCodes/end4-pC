@@ -23,17 +23,7 @@ AbstractBackgroundWidget {
     hoverEnabled: true
 
     readonly property var playerList: MprisController.players
-    property MprisPlayer currentPlayer: {
-        const preferred = Config.options.bar.media.preferredPlayer.trim().toLowerCase()
-        if (preferred.length === 0) return MprisController.activePlayer
-        const _ = MprisController.players.count
-        for (const p of MprisController.players) {
-            if ((p.identity ?? "").toLowerCase().includes(preferred) ||
-                (p.desktopEntry ?? "").toLowerCase().includes(preferred))
-                return p
-        }
-        return MprisController.activePlayer
-    }
+    property MprisPlayer currentPlayer: MprisController.activePlayer
     property var artUrl: currentPlayer?.trackArtUrl
     property string artDownloadLocation: Directories.coverArt
     property string artFileName: Qt.md5(artUrl)
@@ -132,6 +122,7 @@ AbstractBackgroundWidget {
     StyledRectangularShadow {
         target: card
         z: -2
+        visible: Config.options.background.widgets.shadow
     }
 
     Rectangle {
@@ -146,6 +137,17 @@ AbstractBackgroundWidget {
 
         Behavior on implicitHeight {
             NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+        }
+
+        FastBlurred {
+            anchors.fill: parent
+            blurSource: root.wallpaperItem
+            cardRadius: card.radius
+            tint: Appearance.colors.colLayer1
+            tintOpacity: 0.55
+            trackX: root.x  
+            trackY: root.y
+            visible: Config.options.background.widgets.blurWidgets 
         }
 
         Loader {
@@ -829,7 +831,7 @@ AbstractBackgroundWidget {
 
                             StyledText {
                                 Layout.fillWidth: true
-                                text: root.currentPlayer?.trackTitle ?? Translation.tr("Something")
+                                text: root.currentPlayer?.trackTitle ?? Translation.tr("Play")
                                 font.pixelSize: Appearance.font.pixelSize.small
                                 font.weight: Font.DemiBold
                                 font.italic: true
@@ -838,7 +840,7 @@ AbstractBackgroundWidget {
                             }
                             StyledText {
                                 Layout.fillWidth: true
-                                text: root.currentPlayer?.trackArtist ?? "Play"
+                                text: root.currentPlayer?.trackArtist ?? "Something"
                                 font.pixelSize: Appearance.font.pixelSize.smaller
                                 color: Appearance.colors.colOnPrimaryContainer
                                 opacity: 0.65

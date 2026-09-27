@@ -43,6 +43,18 @@ AbstractBackgroundWidget {
         StyledRectangularShadow {
             target: timerCard
             z: -2
+            visible: Config.options.background.widgets.shadow
+        }
+
+        FastBlurred {
+            anchors.fill: parent
+            blurSource: root.wallpaperItem
+            cardRadius: timerCard.radius
+            tint: Appearance.colors.colLayer1
+            tintOpacity: 0.55
+            trackX: timerCard.x + root.x
+            trackY: timerCard.y + root.y
+            visible: Config.options.background.widgets.blurWidgets 
         }
 
         MouseArea {
