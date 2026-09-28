@@ -50,7 +50,6 @@ NestableObject {
         root._pendingChanges = pending
     }
 
-<<<<<<< HEAD
     function _buildLuaLine(m) {
         if (m.disabled)
             return `hl.monitor({ output = "${m.name}", disabled = true })`
@@ -66,13 +65,13 @@ NestableObject {
 
         line += ` })`
         return line
-=======
+    }
+
     function _mergeByName(patchByName) {
         root.monitors = root.monitors.map(mon => {
             const patch = patchByName[mon.name]
             return patch ? Object.assign({}, mon, patch) : mon
         })
->>>>>>> main
     }
 
     function _modeToLua(m) {
