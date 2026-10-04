@@ -98,7 +98,13 @@ Item {
             Wallpapers.apply(box.wallpaper);
     }
 
+    property bool editingText: false
+
     Keys.onPressed: event => {
+        if (editingText) {
+            event.accepted = true;
+            return;
+        }
         if (event.key === Qt.Key_Escape) {
             if (currentPage === presetsPage && presetsLoader.item?.selected) presetsLoader.item.back();
             else GlobalStates.settingsOpen = false;
