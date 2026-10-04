@@ -54,6 +54,7 @@ DashboardCard {
             Layout.fillWidth: true
             model: root.options
             textRole: "displayName"
+            splitIndicator: true
             colBackground: Qt.rgba(1, 1, 1, 0.14)
             colBackgroundHover: Qt.rgba(1, 1, 1, 0.24)
             currentIndex: {
