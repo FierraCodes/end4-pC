@@ -182,13 +182,14 @@ Item {
         side.forEach(card => placed.push({ entry: card, w: 1, h: 1 }));
         let remaining = capacity;
         let rowStart = placed.length;
-        fulls.concat(wides, smalls).forEach(card => {
-            const span = spanOf(card)[0];
+        const ghosts = wides.length === 0 ? enables.map(() => ({ ghost: true })) : [];
+        fulls.concat(ghosts, wides, smalls).forEach(card => {
+            const span = card.ghost ? 1 : spanOf(card)[0];
             if (span > remaining) {
                 remaining = capacity;
                 rowStart = placed.length;
             }
-            placed.push({ entry: card, w: span, h: spanOf(card)[1] });
+            if (!card.ghost) placed.push({ entry: card, w: span, h: spanOf(card)[1] });
             remaining -= span;
             if (remaining === 0) {
                 remaining = capacity;
