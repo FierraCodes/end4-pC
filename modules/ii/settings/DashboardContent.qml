@@ -297,6 +297,7 @@ Item {
         spacing: 12
 
         Item {
+            id: headerBar
             Layout.fillWidth: true
             implicitHeight: 56
 
@@ -330,6 +331,7 @@ Item {
             }
 
             Toolbar {
+                id: navToolbar
                 anchors.centerIn: parent
                 colBackground: ui.toolbar
 
@@ -381,7 +383,7 @@ Item {
                 Rectangle {
                     id: searchPill
                     implicitHeight: 44
-                    implicitWidth: root.searchOpen ? 280 : 44
+                    implicitWidth: root.searchOpen ? Math.max(120, Math.min(220, (headerBar.width - navToolbar.width) / 2 - 12 - 108)) : 44
                     radius: height / 2
                     color: ui.surface
                     border.width: searchInput.activeFocus ? 2 : 0
