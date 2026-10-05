@@ -28,7 +28,8 @@ Item {
     property real maxVisualizerValue: 1000
     property int visualizerSmoothing: 2
     property real radius
-    property bool showLyrics: Config.options.bar.media.showLyrics
+    property bool allowLyrics: true
+    property bool showLyrics: allowLyrics && Config.options.bar.media.showLyrics
 
     property string displayedArtFilePath: {
         if (!root.downloaded) return ""
