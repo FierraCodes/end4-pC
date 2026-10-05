@@ -66,7 +66,5 @@ DashboardCard {
                 Qt.callLater(() => root.control.set(value));
             }
         }
-
-        Item { Layout.fillHeight: true }
     }
 }
