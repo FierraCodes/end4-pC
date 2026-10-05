@@ -82,6 +82,7 @@ Item {
         if (type === "style") return [2, 2];
         if (type === "schemes" || type === "barpos") return [2, 2];
         if (type === "weathermap") return [4, 2];
+        if (type === "timepreview") return [3, 2];
         if (type === "widgets") return [4, 3];
         if (type === "shape") return [2, 2];
         if (type === "barlayout") return [4, 3];
@@ -161,13 +162,25 @@ Item {
         return scored.map(s => s.entry);
     }
 
-    function packRows(cards, capacity) {
+    function isEnableCard(card) {
+        return card.type === "toggle" && !card.keepOrder && card.title === Translation.tr("Enable");
+    }
+
+    function packRows(allCards, capacity) {
+        const enables = allCards.filter(c => isEnableCard(c));
+        const cards = allCards.filter(c => !isEnableCard(c));
         const fulls = cards.filter(c => spanOf(c)[0] === 4);
         const wides = cards.filter(c => spanOf(c)[0] === 2);
-        const smalls = cards.filter(c => spanOf(c)[0] === 1);
+        const allSmalls = cards.filter(c => spanOf(c)[0] === 1);
+        const tall = cards.filter(c => spanOf(c)[0] === 3);
+        const side = tall.length > 0 ? allSmalls.slice(0, 2) : [];
+        const smalls = allSmalls.slice(side.length);
         const placed = [];
+        enables.forEach(card => placed.push({ entry: card, w: 1, h: 1 }));
+        tall.forEach(card => placed.push({ entry: card, w: 3, h: spanOf(card)[1] }));
+        side.forEach(card => placed.push({ entry: card, w: 1, h: 1 }));
         let remaining = capacity;
-        let rowStart = 0;
+        let rowStart = placed.length;
         fulls.concat(wides, smalls).forEach(card => {
             const span = spanOf(card)[0];
             if (span > remaining) {
@@ -533,6 +546,7 @@ Item {
                             : modelData.type === "palette" ? paletteComponent
                             : modelData.type === "duration" ? durationComponent
                             : modelData.type === "iconpicker" ? iconPickerComponent
+                            : modelData.type === "timepreview" ? timePreviewComponent
                             : modelData.type === "weathermap" ? weatherMapComponent
                             : modelData.type === "widgets" ? widgetsComponent
                             : selectComponent
@@ -726,6 +740,21 @@ Item {
                         Component {
                             id: widgetsComponent
                             DashboardWidgetsCard {
+                                anchors.fill: parent
+                                title: slot.modelData.title
+                                icon: slot.modelData.icon
+                                tileShape: slot.modelData.shape
+                                pager: root.pager
+                                staggerMs: root.staggerMs
+                                animIndex: slot.index % 6
+                                travelX: slot.modelData.travelX
+                                travelY: slot.modelData.travelY
+                            }
+                        }
+
+                        Component {
+                            id: timePreviewComponent
+                            DashboardTimeCard {
                                 anchors.fill: parent
                                 title: slot.modelData.title
                                 icon: slot.modelData.icon

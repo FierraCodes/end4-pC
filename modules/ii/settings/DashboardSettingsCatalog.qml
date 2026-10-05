@@ -476,7 +476,7 @@ QtObject {
         },
         {
             page: Translation.tr("Desktop"), title: Translation.tr("Custom image"), icon: "imagesmode", cards: [
-                { type: "toggle", key: "desktop:Custom Image/Enable", title: Translation.tr("Enable"), icon: "imagesmode" },
+                { type: "toggle", key: "desktop:Custom Image/Enable", keepOrder: true, title: Translation.tr("Enable"), icon: "imagesmode" },
                 { type: "shape", key: "desktop:Image shape", title: Translation.tr("Shape"), icon: "shapes" }
             ]
         },
@@ -522,9 +522,10 @@ QtObject {
         },
         {
             page: Translation.tr("General"), title: Translation.tr("Time"), icon: "nest_clock_farsight_analog", cards: [
-                { type: "select", key: "general:Format", title: Translation.tr("Time format"), icon: "schedule", kw: "clock 24h 12h" },
+                { type: "timepreview", key: "general:Time preview", title: Translation.tr("Preview"), icon: "schedule", kw: "clock time preview" },
                 { type: "toggle", key: "general:Second precision", title: Translation.tr("Second precision"), icon: "pace" },
-                { type: "toggle", key: "general:Show date", title: Translation.tr("Show date"), icon: "date_range" }
+                { type: "toggle", key: "general:Show date", title: Translation.tr("Show date"), icon: "date_range" },
+                { type: "select", w: 4, key: "general:Format", title: Translation.tr("Time format"), icon: "schedule", kw: "clock 24h 12h" }
             ]
         },
         {
