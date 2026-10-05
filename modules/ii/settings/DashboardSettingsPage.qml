@@ -82,6 +82,7 @@ Item {
         if (type === "style") return [2, 2];
         if (type === "schemes" || type === "barpos") return [2, 2];
         if (type === "weathermap") return [4, 2];
+        if (type === "collagelayouts") return [4, 2];
         if (type === "timepreview") return [3, 2];
         if (type === "widgets") return [4, 3];
         if (type === "shape") return [2, 2];
@@ -547,6 +548,7 @@ Item {
                             : modelData.type === "duration" ? durationComponent
                             : modelData.type === "iconpicker" ? iconPickerComponent
                             : modelData.type === "timepreview" ? timePreviewComponent
+                            : modelData.type === "collagelayouts" ? collageLayoutsComponent
                             : modelData.type === "weathermap" ? weatherMapComponent
                             : modelData.type === "widgets" ? widgetsComponent
                             : selectComponent
@@ -755,6 +757,21 @@ Item {
                         Component {
                             id: timePreviewComponent
                             DashboardTimeCard {
+                                anchors.fill: parent
+                                title: slot.modelData.title
+                                icon: slot.modelData.icon
+                                tileShape: slot.modelData.shape
+                                pager: root.pager
+                                staggerMs: root.staggerMs
+                                animIndex: slot.index % 6
+                                travelX: slot.modelData.travelX
+                                travelY: slot.modelData.travelY
+                            }
+                        }
+
+                        Component {
+                            id: collageLayoutsComponent
+                            DashboardCollageLayoutsCard {
                                 anchors.fill: parent
                                 title: slot.modelData.title
                                 icon: slot.modelData.icon

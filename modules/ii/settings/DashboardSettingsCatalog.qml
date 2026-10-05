@@ -413,6 +413,7 @@ QtObject {
         {
             page: Translation.tr("Desktop"), title: Translation.tr("Multiple wallpapers"), icon: "grid_view", cards: [
                 { type: "toggle", key: "desktop:Collage enable", title: Translation.tr("Enable"), icon: "grid_view" },
+                { type: "collagelayouts", key: "desktop:Collage layouts", title: Translation.tr("Layouts"), icon: "dashboard_customize", kw: "collage multiple wallpapers layout preset grid mosaic" },
                 { type: "spin", key: "desktop:Collage gap", title: Translation.tr("Spacing"), icon: "space_bar" },
                 { type: "spin", key: "desktop:Collage margin", title: Translation.tr("Outer margin"), icon: "padding" },
                 { type: "spin", key: "desktop:Collage radius", title: Translation.tr("Corner radius"), icon: "rounded_corner" }
