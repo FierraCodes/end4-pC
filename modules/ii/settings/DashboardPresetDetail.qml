@@ -448,7 +448,7 @@ Item {
                     readonly property bool unshareArmed: isUnshare && root.confirmUnshare
                     readonly property bool done: (modelData.id === "overwrite" && root.overwritten) || (modelData.id === "export" && root.exported) || (modelData.id === "install" && root.installed)
 
-                    visible: !root.online && modelData.scope.includes(root.preset.source) && (!modelData.own || !(root.info.origin ?? "")) && (!modelData.published || Presets.isPublished(root.preset.name))
+                    visible: !root.online && modelData.scope.includes(root.preset.source) && (!modelData.own || !(root.info.origin ?? "")) && (modelData.id === "upload" ? !Presets.isPublished(root.preset.name) : (!modelData.published || Presets.isPublished(root.preset.name)))
                     implicitHeight: 48
                     horizontalPadding: 18
                     buttonRadius: 24
