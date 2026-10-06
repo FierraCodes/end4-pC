@@ -92,6 +92,10 @@ QtObject {
         "bar:Icon color": { type: "select", get: () => Config.options.custom.iconColor, set: v => { Config.options.custom.iconColor = v; }, get options() { return ["onLayer0", "primary", "secondary", "tertiary", "onPrimaryContainer", "onSecondaryContainer", "onTertiaryContainer"].map(name => ({ value: name, color: roleColor(name) })); } },
         "bar:Icons folder": { type: "text", get: () => Config.options.custom.iconsPath, set: v => { Config.options.custom.iconsPath = v; } },
         "bar:Preferred player": { type: "text", get: () => Config.options.bar.media.preferredPlayer, set: v => { Config.options.bar.media.preferredPlayer = v; } },
+        "hyprland:Active border color": { type: "select", get: () => Config.options.hyprland.general.borderColor.activeRole, set: v => { Config.options.hyprland.general.borderColor.activeRole = v; HyprlandConfig.applyBorderColors(); }, get options() { return ["primary", "secondary", "tertiary", "primaryContainer", "secondaryContainer", "tertiaryContainer", "layer0Border"].map(name => ({ value: name, color: roleColor(name) })); } },
+        "hyprland:Active border opacity": { type: "spin", get: () => Math.round(Config.options.hyprland.general.borderColor.activeOpacity * 100), set: v => { Config.options.hyprland.general.borderColor.activeOpacity = v / 100.0; HyprlandConfig.applyBorderColors(); }, from: 0, to: 100, stepSize: 5 },
+        "hyprland:Inactive border color": { type: "select", get: () => Config.options.hyprland.general.borderColor.inactiveRole, set: v => { Config.options.hyprland.general.borderColor.inactiveRole = v; HyprlandConfig.applyBorderColors(); }, get options() { return ["primary", "secondary", "tertiary", "primaryContainer", "secondaryContainer", "tertiaryContainer", "layer0Border"].map(name => ({ value: name, color: roleColor(name) })); } },
+        "hyprland:Inactive border opacity": { type: "spin", get: () => Math.round(Config.options.hyprland.general.borderColor.inactiveOpacity * 100), set: v => { Config.options.hyprland.general.borderColor.inactiveOpacity = v / 100.0; HyprlandConfig.applyBorderColors(); }, from: 0, to: 100, stepSize: 5 },
         "hyprland:Idle lock": { type: "duration", get: () => Config.options.hyprland.idle.lock, set: v => { Config.options.hyprland.idle.lock = v; HyprlandConfig.setIdle(Config.options.hyprland.idle.lock, Config.options.hyprland.idle.screenOff, Config.options.hyprland.idle.suspend); } },
         "hyprland:Idle screen off": { type: "duration", get: () => Config.options.hyprland.idle.screenOff, set: v => { Config.options.hyprland.idle.screenOff = v; HyprlandConfig.setIdle(Config.options.hyprland.idle.lock, Config.options.hyprland.idle.screenOff, Config.options.hyprland.idle.suspend); } },
         "hyprland:Idle standby": { type: "duration", get: () => Config.options.hyprland.idle.suspend, set: v => { Config.options.hyprland.idle.suspend = v; HyprlandConfig.setIdle(Config.options.hyprland.idle.lock, Config.options.hyprland.idle.screenOff, Config.options.hyprland.idle.suspend); } },
@@ -627,6 +631,14 @@ QtObject {
                 { type: "spin", key: "hyprland:Active Opacity", title: Translation.tr("Active opacity"), icon: "opacity" },
                 { type: "spin", key: "hyprland:Inactive Opacity", title: Translation.tr("Inactive opacity"), icon: "opacity" },
                 { type: "toggle", key: "hyprland:Custom border colors", title: Translation.tr("Custom border colors"), icon: "format_paint" }
+            ]
+        },
+        {
+            page: Translation.tr("Hyprland"), title: Translation.tr("Border colors"), icon: "border_color", when: "hyprbordercolor", cards: [
+                { type: "swatch", w: 2, key: "hyprland:Active border color", title: Translation.tr("Active border"), icon: "border_color" },
+                { type: "swatch", w: 2, key: "hyprland:Inactive border color", title: Translation.tr("Inactive border"), icon: "border_color" },
+                { type: "spin", key: "hyprland:Active border opacity", title: Translation.tr("Active border opacity"), icon: "opacity" },
+                { type: "spin", key: "hyprland:Inactive border opacity", title: Translation.tr("Inactive border opacity"), icon: "opacity" }
             ]
         },
         {
