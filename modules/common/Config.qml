@@ -159,6 +159,7 @@ Singleton {
                 property string descriptionText: "::distro::"
                 property string displayName: ""
                 property bool onlinePresets: false
+                property bool uploadGuideSeen: false
 
             }
 

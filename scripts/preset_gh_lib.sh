@@ -27,6 +27,17 @@ first_author() {
     printf '%s\n' "$raw" | grep -v '^null$' | grep -v '^$' | tail -n 1
 }
 
+preset_owner() {
+    local encoded owner
+    encoded=$(gh api "repos/$UPSTREAM/contents/presets/$1/meta.json?ref=$BASE_BRANCH" --jq .content 2>/dev/null) || encoded=""
+    owner=$(printf '%s' "$encoded" | base64 -d 2>/dev/null | jq -r '.author // empty' 2>/dev/null)
+    if [ -n "$owner" ]; then
+        echo "$owner"
+        return
+    fi
+    first_author "$1"
+}
+
 open_workspace() {
     fork_repo="$login/${UPSTREAM#*/}"
     if [ "${login,,}" != "${UPSTREAM%%/*}" ]; then

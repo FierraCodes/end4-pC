@@ -18,6 +18,11 @@ rm -rf "presets/$NAME"
 mkdir -p "presets/$NAME"
 cp -a "$FOLDER"/. "presets/$NAME"/
 
+meta="presets/$NAME/meta.json"
+[ -f "$meta" ] || echo '{}' > "$meta"
+jq --arg author "$login" '.author = $author' "$meta" > "$meta.tmp" && mv "$meta.tmp" "$meta" \
+    || die 12 "could not write the author"
+
 git add -A presets
 if git diff --cached --quiet; then
     die 13 "nothing changed compared with the published preset"

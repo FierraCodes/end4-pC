@@ -425,7 +425,29 @@ Singleton {
         installProc.running = true
     }
 
+    property bool uploadGuideOpen: false
+    property string uploadGuideName: ""
+
     function publish(name) {
+        if (!Config.options.profile.uploadGuideSeen) {
+            root.uploadGuideName = name
+            root.uploadGuideOpen = true
+            return
+        }
+        root.pickPreview(name)
+    }
+
+    function confirmUploadGuide() {
+        Config.options.profile.uploadGuideSeen = true
+        root.uploadGuideOpen = false
+        root.pickPreview(root.uploadGuideName)
+    }
+
+    function cancelUploadGuide() {
+        root.uploadGuideOpen = false
+    }
+
+    function pickPreview(name) {
         const title = Translation.tr("Choose the preview image (a screenshot of your desktop)")
         const start = `${Quickshell.env("HOME")}/Pictures`
         publishPickProc.presetName = name

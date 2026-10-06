@@ -565,16 +565,26 @@ Item {
                                 }
                             }
 
-                            StyledText {
+                            ColumnLayout {
                                 anchors.left: parent.left
                                 anchors.right: parent.right
                                 anchors.bottom: parent.bottom
                                 anchors.margins: 14
-                                text: onlineCell.modelData.title
-                                font.pixelSize: Appearance.font.pixelSize.larger
-                                font.weight: Font.DemiBold
-                                color: "white"
-                                elide: Text.ElideRight
+                                spacing: 4
+
+                                StyledText {
+                                    Layout.fillWidth: true
+                                    text: onlineCell.modelData.title
+                                    font.pixelSize: Appearance.font.pixelSize.larger
+                                    font.weight: Font.DemiBold
+                                    color: "white"
+                                    elide: Text.ElideRight
+                                }
+
+                                PresetAuthorChip {
+                                    Layout.fillWidth: true
+                                    author: onlineCell.modelData.author ?? ""
+                                }
                             }
 
                             MouseArea {
@@ -688,6 +698,7 @@ Item {
         id: detailLoader
         anchors.fill: parent
         active: root.selected !== null
+        visible: !Presets.uploadGuideOpen
 
         sourceComponent: DashboardPresetDetail {
             preset: root.selected
@@ -708,6 +719,17 @@ Item {
                 root.removePreset(root.selected);
                 root.back();
             }
+        }
+    }
+
+    Loader {
+        anchors.fill: parent
+        active: Presets.uploadGuideOpen
+
+        sourceComponent: DashboardPresetUploadGuide {
+            presetName: Presets.uploadGuideName
+            onProceed: Presets.confirmUploadGuide()
+            onCancel: Presets.cancelUploadGuide()
         }
     }
 

@@ -13,7 +13,7 @@ read_account
 case "$MODE" in
     owned)
         author=""
-        is_published "$NAME" && author=$(first_author "$NAME")
+        is_published "$NAME" && author=$(preset_owner "$NAME")
         if [ -z "$author" ]; then
             echo "none"
         elif [ "${author,,}" = "${login,,}" ]; then
@@ -25,7 +25,8 @@ case "$MODE" in
     remove)
         open_workspace
         [ -d "presets/$NAME" ] || die 14 "\"$NAME\" is not in the gallery"
-        author=$(first_author "$NAME")
+        author=$(jq -r '.author // empty' "presets/$NAME/meta.json" 2>/dev/null)
+        [ -n "$author" ] || author=$(first_author "$NAME")
         [ -n "$author" ] && [ "${author,,}" = "${login,,}" ] || die 15 "\"$NAME\" belongs to someone else"
         branch="preset/remove-$NAME-$(date +%s)"
         git checkout -q -b "$branch" || die 12 "could not create a branch"

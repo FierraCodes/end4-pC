@@ -335,6 +335,14 @@ Item {
                         wrapMode: Text.WordWrap
                     }
 
+                    PresetAuthorChip {
+                        Layout.fillWidth: true
+                        visible: root.online && author !== ""
+                        author: root.preset.entry?.author ?? ""
+                        textColor: Appearance.colors.colOnSecondaryContainer
+                        avatarSize: 28
+                    }
+
                     Repeater {
                         model: root.facts
 
