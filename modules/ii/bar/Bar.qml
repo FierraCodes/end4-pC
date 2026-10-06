@@ -25,7 +25,7 @@ Scope {
         }
         LazyLoader {
             id: barLoader
-            active: GlobalStates.barOpen && !GlobalStates.screenLocked
+            active: GlobalStates.barOpen && !GlobalStates.screenLocked && !GlobalStates.startupLockPending
             required property ShellScreen modelData
             component: PanelWindow { // Bar window
                 id: barRoot
@@ -70,11 +70,20 @@ Scope {
                 }
                 property bool superShow: false
                 property bool mustShow: hoverRegion.containsMouse || superShow
+                    || (Config.options.bar.autoHide.enable && GlobalStates.isFrameHovered(barRoot.screen?.name, Config.options.bar.bottom ? "bottom" : "top"))
                 property var thisMonitorData: HyprlandData.monitors.find(m => m.name === barRoot.screen?.name)
                 property bool monitorHasFullscreen: HyprlandData.workspaceById[thisMonitorData?.activeWorkspace?.id]?.hasfullscreen ?? false
                 property bool monitorHasSpecialOpen: (thisMonitorData?.specialWorkspace?.name ?? "") !== ""
                 exclusionMode: ExclusionMode.Ignore
-                exclusiveZone: (Config?.options.bar.autoHide.enable && (!mustShow || !Config?.options.bar.autoHide.pushWindows)) ? 0 : Appearance.sizes.baseBarHeight + (Config.options.bar.cornerStyle === 1 ? Appearance.sizes.hyprlandGapsOut : 0) + (Config.options.bar.cornerStyle === 2 ? -6 : 0)
+                property int normalExclusiveZone: (Config?.options.bar.autoHide.enable && (!mustShow || !Config?.options.bar.autoHide.pushWindows))
+                    ? 0
+                    : Appearance.sizes.baseBarHeight
+                        + (Config.options.bar.cornerStyle === 1 ? Appearance.sizes.hyprlandGapsOut : 0)
+                        + (Config.options.bar.cornerStyle === 2 ? -6 : 0)
+
+                exclusiveZone: (barContent.centerOnly && Config.options.bar.centerOnlyReserveFrame)
+                    ? Config.options.bar.frameThickness
+                    : (Config.options.bar.cornerStyle === 4 || Config.options.bar.cornerStyle === 5) ? normalExclusiveZone + 4 : normalExclusiveZone
                 WlrLayershell.namespace: "quickshell:bar"
                 // Overlay layer only while special workspace sits on top of a fullscreen window on this monitor,
                 // else Top layer so fullscreen apps cover the bar as normal (Hyprland buries Top layer under fullscreen+special).
@@ -146,36 +155,6 @@ Scope {
                         }
                     }
 
-                    RoundCorner {
-                        id: leftPillCorner
-                        visible: barContent.centerOnly && showBarBackground && Config.options.bar.cornerStyle === 0 && barRoot.showCorners
-                        x: barContent.centerPillX - implicitSize
-                        implicitSize: Appearance.rounding.screenRounding
-                        color: Config.options.bar.followFrameColor
-                            ? Appearance.getColorFromName(Config.options.bar.frameColor)
-                            : Appearance.colors.colLayer0
-                        corner: RoundCorner.CornerEnum.TopRight
-
-                        states: State {
-                            name: "bottom"
-                            when: Config.options.bar.bottom
-                            AnchorChanges {
-                                target: leftPillCorner
-                                anchors.top: undefined
-                                anchors.bottom: barContent.bottom
-                            }
-                            PropertyChanges {
-                                target: leftPillCorner
-                                corner: RoundCorner.CornerEnum.BottomRight
-                            }
-                        }
-                        AnchorChanges {
-                            target: leftPillCorner
-                            anchors.top: barContent.top
-                            anchors.bottom: undefined
-                        }
-                    }
-
                     BarContent {
                         id: barContent
                         
@@ -215,36 +194,6 @@ Scope {
                             }
                         }
                     }
-
-                    RoundCorner {
-                        id: rightPillCorner
-                        visible: barContent.centerOnly && showBarBackground && Config.options.bar.cornerStyle === 0 && barRoot.showCorners
-                        x: barContent.centerPillX + barContent.centerPillWidth
-                        implicitSize: Appearance.rounding.screenRounding
-                        color: Config.options.bar.followFrameColor
-                            ? Appearance.getColorFromName(Config.options.bar.frameColor)
-                            : Appearance.colors.colLayer0
-                        corner: RoundCorner.CornerEnum.TopLeft
-
-                        states: State {
-                            name: "bottom"
-                            when: Config.options.bar.bottom
-                            AnchorChanges {
-                                target: rightPillCorner
-                                anchors.top: undefined
-                                anchors.bottom: barContent.bottom
-                            }
-                            PropertyChanges {
-                                target: rightPillCorner
-                                corner: RoundCorner.CornerEnum.BottomLeft
-                            }
-                        }
-                        AnchorChanges {
-                            target: rightPillCorner
-                            anchors.top: barContent.top
-                            anchors.bottom: undefined
-                        }
-                    }
                     
                     // Round decorators
                     Loader {
@@ -256,7 +205,8 @@ Scope {
                             bottom: undefined
                         }
                         height: Appearance.rounding.screenRounding
-                        active: showBarBackground && Config.options.bar.cornerStyle === 0 && !barContent.centerOnly// Hug
+                        active: (showBarBackground && Config.options.bar.cornerStyle === 0 && !barContent.centerOnly)
+                             || (Config.options.bar.cornerStyle === 4)
 
                         states: State {
                             name: "bottom"
@@ -275,7 +225,7 @@ Scope {
                         sourceComponent: Item {
                             implicitHeight: Appearance.rounding.screenRounding
 
-                            readonly property color decoratorColor: showBarBackground
+                            readonly property color decoratorColor: (Config.options.bar.cornerStyle === 4 || showBarBackground)
                                 ? (Config.options.bar.followFrameColor && Config.options.bar.frameColor
                                     ? Appearance.getColorFromName(Config.options.bar.frameColor)
                                     : Appearance.colors.colLayer0)
@@ -283,6 +233,7 @@ Scope {
 
                             RoundCorner {
                                 id: leftCorner
+                                visible: Config.options.bar.cornerStyle === 0 || barContent.effectiveLeftLayout.length > 0
                                 anchors {
                                     top: parent.top
                                     bottom: parent.bottom
@@ -303,6 +254,7 @@ Scope {
                             }
                             RoundCorner {
                                 id: rightCorner
+                                visible: Config.options.bar.cornerStyle === 0 || barContent.effectiveRightLayout.length > 0
                                 anchors {
                                     right: parent.right
                                     top: !Config.options.bar.bottom ? parent.top : undefined

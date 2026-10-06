@@ -6,33 +6,29 @@ import qs.modules.common.functions
 import qs.modules.common.widgets
 import qs.services
 import qs
+import Quickshell.Widgets
 
-MouseArea {
+Item {
     id: root
 
     required property var fileModelData
-    property bool isDirectory: fileModelData.fileIsDir
-    property bool useThumbnail: Images.isValidImageByName(fileModelData.fileName)
+    property bool isDirectory: fileModelData ? Boolean(fileModelData.fileIsDir) : false
+    property bool useThumbnail: fileModelData ? Images.isValidImageByName(fileModelData.fileName) : false
     property alias colBackground: background.color
     property alias colText: wallpaperItemName.color
     property alias radius: background.radius
     property alias margins: background.anchors.margins
     property bool showLabel: true
     property alias padding: wallpaperItemColumnLayout.anchors.margins
+    readonly property real imageWidth: Math.max(1, root.width - 2 * (root.margins + root.padding))
+    readonly property real imageHeight: Math.max(1, root.height - 2 * (root.margins + root.padding)
+        - (root.showLabel ? wallpaperItemColumnLayout.spacing + wallpaperItemName.implicitHeight : 0))
 
     signal activated()
     signal previewRequested()
 
     margins: Appearance.sizes.wallpaperSelectorItemMargins
     padding: Appearance.sizes.wallpaperSelectorItemPadding
-    hoverEnabled: true
-    onClicked: {
-        if (GlobalStates.wallpaperSelectorTarget === "lockWall" || !Config.options.background.enableWallpaperPreview)
-            root.activated()
-        else
-            root.previewRequested()
-    }
-    onDoubleClicked: root.activated()
 
     Rectangle {
         id: background
@@ -56,6 +52,7 @@ MouseArea {
                     id: thumbnailShadowLoader
 
                     active: thumbnailImageLoader.active && thumbnailImageLoader.item.status === Image.Ready
+                    asynchronous: true
                     anchors.fill: thumbnailImageLoader
 
                     sourceComponent: StyledRectangularShadow {
@@ -70,19 +67,22 @@ MouseArea {
                     id: thumbnailImageLoader
 
                     anchors.fill: parent
-                    active: root.useThumbnail
+                    active: root.useThumbnail && root.width > 0 && root.height > 0
 
-                    sourceComponent: ThumbnailImage {
+                    sourceComponent: ClippingRectangle {
+                        readonly property alias status: thumbnailImage.status
+                        radius: Appearance.rounding.small
+                        color: "transparent"
+
+                    ThumbnailImage {
                         id: thumbnailImage
-
+                        anchors.fill: parent
                         generateThumbnail: false
-                        sourcePath: fileModelData.filePath
+                        sourcePath: (fileModelData && fileModelData.filePath) ? fileModelData.filePath : ""
                         cache: false
                         fillMode: Image.PreserveAspectCrop
-                        clip: true
-                        sourceSize.width: wallpaperItemColumnLayout.width
-                        sourceSize.height: wallpaperItemColumnLayout.height - wallpaperItemColumnLayout.spacing - wallpaperItemName.height
-                        layer.enabled: true
+                        sourceSize.width: root.imageWidth
+                        sourceSize.height: root.imageHeight
 
                         Connections {
                             function onThumbnailGenerated(directory) {
@@ -109,17 +109,7 @@ MouseArea {
 
                             target: Wallpapers
                         }
-
-                        layer.effect: OpacityMask {
-
-                            maskSource: Rectangle {
-                                width: wallpaperItemImageContainer.width
-                                height: wallpaperItemImageContainer.height
-                                radius: Appearance.rounding.small
-                            }
-
-                        }
-
+                    }
                     }
 
                 }
@@ -132,8 +122,8 @@ MouseArea {
 
                     sourceComponent: DirectoryIcon {
                         fileModelData: root.fileModelData
-                        sourceSize.width: wallpaperItemColumnLayout.width
-                        sourceSize.height: wallpaperItemColumnLayout.height - wallpaperItemColumnLayout.spacing - wallpaperItemName.height
+                        sourceSize.width: root.imageWidth
+                        sourceSize.height: root.imageHeight
                     }
 
                 }
@@ -150,7 +140,7 @@ MouseArea {
                 horizontalAlignment: Text.AlignHCenter
                 elide: Text.ElideRight
                 font.pixelSize: Appearance.font.pixelSize.smaller
-                text: fileModelData.fileName
+                text: (fileModelData && fileModelData.fileName) ? fileModelData.fileName : ""
 
                 Behavior on color {
                     animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
