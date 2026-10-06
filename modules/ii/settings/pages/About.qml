@@ -42,11 +42,14 @@ ContentPage {
                 radius: 20
                 color: ColorUtils.transparentize(Appearance.colors.colPrimary, 0.9)
 
-                IconImage {
+                CustomIcon {
                     anchors.centerIn: parent
-                    implicitWidth: 72
-                    implicitHeight: 72
-                    source: SystemAppearance.iconPath(SystemInfo.logo)
+                    width: 72
+                    height: 72
+                    source: Config.options.custom.distroIcon || SystemInfo.distroIcon
+                    customFolder: Config.options.custom.iconsPath
+                    colorize: Config.options.custom.colorizeIcon
+                    color: Appearance.colors.colPrimary
                 }
             }
 
