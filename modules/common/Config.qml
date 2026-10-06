@@ -401,6 +401,16 @@ Singleton {
                         property real size: 200
                     }
 
+                    property JsonObject imageCard: JsonObject {
+                        property bool enable: false
+                        property string placementStrategy: "free"
+                        property real x: 400
+                        property real y: 100
+                        property real z: 0
+                        property string path: ""
+                        property string sizeMode: "1x2"
+                    }
+
                     property JsonObject sticker: JsonObject {
                         property bool enable: false
                         property list<var> items: [] // if someone sees this and wants to add more stickers, make a PR too lazy 

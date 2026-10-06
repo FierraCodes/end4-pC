@@ -339,7 +339,7 @@ Item {
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             cellWidth: Math.floor(width / root.columns)
-            cellHeight: Math.round(cellWidth * 0.68)
+            cellHeight: Math.max(120, Math.floor(height / 2))
             cacheBuffer: 0
             model: root.source === "online" ? [] : root.localEntries
 
@@ -503,7 +503,7 @@ Item {
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
                 cellWidth: Math.floor(width / root.columns)
-                cellHeight: Math.round(cellWidth * 0.68)
+                cellHeight: Math.max(120, Math.floor(height / 2))
                 cacheBuffer: 0
                 model: root.source === "online" ? root.onlineEntries : []
 
