@@ -385,16 +385,17 @@ Item {
 
                             Loader {
                                 id: sliderLoader
+                                property var player: root.player
                                 anchors.fill: parent
-                                active: root.player?.canSeek ?? false
+                                active: sliderLoader.player?.canSeek ?? false
                                 sourceComponent: StyledSlider {
                                     configuration: StyledSlider.Configuration.Wavy
                                     highlightColor: blendedColors.colPrimary
                                     trackColor: blendedColors.colSecondaryContainer
                                     handleColor: blendedColors.colPrimary
-                                    value: (root.player?.position ?? 0) / (root.player?.length ?? 1)
+                                    value: (sliderLoader.player?.position ?? 0) / (sliderLoader.player?.length ?? 1)
                                     onMoved: {
-                                        root.player.position = value * root.player.length
+                                        sliderLoader.player.position = value * sliderLoader.player.length
                                         lyricsComp.restartLyrics()
                                     }
                                 }
@@ -402,17 +403,18 @@ Item {
 
                             Loader {
                                 id: progressBarLoader
+                                property var player: root.player
                                 anchors {
                                     verticalCenter: parent.verticalCenter
                                     left: parent.left
                                     right: parent.right
                                 }
-                                active: !(root.player?.canSeek ?? false)
+                                active: !(progressBarLoader.player?.canSeek ?? false)
                                 sourceComponent: StyledProgressBar {
-                                    wavy: root.player?.isPlaying ?? false
+                                    wavy: progressBarLoader.player?.isPlaying ?? false
                                     highlightColor: blendedColors.colPrimary
                                     trackColor: blendedColors.colSecondaryContainer
-                                    value: (root.player?.position ?? 0) / (root.player?.length ?? 1)
+                                    value: (progressBarLoader.player?.position ?? 0) / (progressBarLoader.player?.length ?? 1)
                                 }
                             }
                         }
@@ -557,10 +559,52 @@ Item {
                         modal: true
                         dim: false
                         closePolicy: Popup.CloseOnPressOutside | Popup.CloseOnEscape
+                        transformOrigin: Popup.BottomRight
+
+                        enter: Transition {
+                            ParallelAnimation {
+                                NumberAnimation {
+                                    property: "scale"
+                                    from: 0.6
+                                    to: 1
+                                    duration: 500
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Appearance.animationCurves.expressiveFastSpatial
+                                }
+                                NumberAnimation {
+                                    property: "opacity"
+                                    from: 0
+                                    to: 1
+                                    duration: Appearance.animationCurves.expressiveEffectsDuration
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Appearance.animationCurves.expressiveEffects
+                                }
+                            }
+                        }
+                        exit: Transition {
+                            ParallelAnimation {
+                                NumberAnimation {
+                                    property: "scale"
+                                    to: 0.6
+                                    duration: 220
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Appearance.animationCurves.emphasizedAccel
+                                }
+                                NumberAnimation {
+                                    property: "opacity"
+                                    to: 0
+                                    duration: 120
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Appearance.animationCurves.emphasizedAccel
+                                }
+                            }
+                        }
 
                         background: Rectangle {
-                            color: Appearance.colors.colLayer0
+                            color: Appearance.m3colors.m3surfaceContainer
                             radius: Appearance.rounding.verylarge
+                            border.width: 2
+                            border.color: Appearance.colors.colLayer0Border
                         }
 
                         contentItem: ColumnLayout {
