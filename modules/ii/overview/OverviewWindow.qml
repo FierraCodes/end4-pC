@@ -12,6 +12,8 @@ import Quickshell.Wayland
 Item { // Window
     id: root
     property var toplevel
+    property var windowAddresses: HyprlandData.addresses
+    property var windowByAddress: HyprlandData.windowByAddress
     property var windowData
     property var monitorData
     property var scale
@@ -27,28 +29,56 @@ Item { // Window
         return (widgetHeight * monitorData.scale) / (monitorHeight * widgetMonitor.scale);
     }
     property real initX: {
-        return Math.max((windowData?.at[0] - (monitorData?.x ?? 0) - monitorData?.reserved[0]) * widthRatio * root.scale, 0) + xOffset;
+        if (singleTiled) return xOffset;
+        return (windowData?.at[0] - (monitorData?.x ?? 0) - monitorData?.reserved[0]) * widthRatio * root.scale + xOffset;
     }
 
     property real initY: {
+        if (singleTiled) return yOffset;
         return Math.max((windowData?.at[1] - (monitorData?.y ?? 0) - monitorData?.reserved[1]) * heightRatio * root.scale, 0) + yOffset;
     }
     property real xOffset: 0
     property real yOffset: 0
     property var widgetMonitor
     property int widgetMonitorId: widgetMonitor.id
+    property real workspaceWidth: 0
+    property real workspaceHeight: 0
 
-    property var targetWindowWidth: windowData?.size[0] * scale * widthRatio
-    property var targetWindowHeight: windowData?.size[1] * scale * heightRatio
+    property real tiledCount: {
+        if (!windowData || windowData.floating || windowData.fullscreen) return 0;
+        const wsId = windowData.workspace?.id;
+        if (!wsId) return 0;
+        let count = 0;
+        for (const addr of root.windowAddresses) {
+            const w = root.windowByAddress[addr];
+            if (w && w.workspace?.id === wsId && !w.floating && !w.fullscreen) count++;
+        }
+        return count;
+    }
+    property bool singleTiled: tiledCount === 1
+
+    property var targetWindowWidth: {
+        if (singleTiled && root.workspaceWidth > 0) {
+            return root.workspaceWidth;
+        }
+        return windowData?.size[0] * scale * widthRatio;
+    }
+    property var targetWindowHeight: {
+        if (singleTiled && root.workspaceHeight > 0) {
+            return root.workspaceHeight;
+        }
+        return windowData?.size[1] * scale * heightRatio;
+    }
     property bool hovered: false
     property bool pressed: false
+    property bool dragging: false
 
     property bool centerIcons: Config.options.overview.centerIcons
     property real iconGapRatio: 0.06
     property real iconToWindowRatio: centerIcons ? 0.35 : 0.15
     property real xwaylandIndicatorToIconRatio: 0.35
     property real iconToWindowRatioCompact: 0.6
-    property string iconPath: Quickshell.iconPath(AppSearch.guessIcon(windowData?.class), "image-missing")
+    property string iconPath: SystemAppearance.iconPath(AppSearch.guessIcon(windowData?.class), "image-missing")
     property bool compactMode: Appearance.font.pixelSize.smaller * 4 > targetWindowHeight || Appearance.font.pixelSize.smaller * 4 > targetWindowWidth
 
     property bool indicateXWayland: windowData?.xwayland ?? false
@@ -77,9 +107,11 @@ Item { // Window
     }
 
     Behavior on x {
+        enabled: !window.Drag.active && !window.dragging
         animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
     }
     Behavior on y {
+        enabled: !window.Drag.active && !window.dragging
         animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
     }
     Behavior on width {

@@ -8,5 +8,6 @@ import QtQuick
 AndroidQuickToggleButton {
     id: root
     
+
     toggleModel: VpnToggle {}
 }
