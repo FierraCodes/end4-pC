@@ -573,7 +573,7 @@ QtObject {
             ]
         },
         {
-            page: Translation.tr("Hyprland"), title: Translation.tr("Dwindle"), icon: "browse", when: "hyprland", cards: [
+            page: Translation.tr("Hyprland"), title: Translation.tr("Dwindle"), icon: "browse", when: "layoutdwindle", cards: [
                 { type: "toggle", key: "hyprland:opt:dwindle:preserve_split", title: Translation.tr("Preserve split direction"), icon: "call_split" },
                 { type: "toggle", key: "hyprland:opt:dwindle:smart_split", title: Translation.tr("Smart split (follow cursor)"), icon: "smart_toy" },
                 { type: "select", key: "hyprland:opt:dwindle:force_split", title: Translation.tr("Force split side"), icon: "splitscreen" },
@@ -581,7 +581,7 @@ QtObject {
             ]
         },
         {
-            page: Translation.tr("Hyprland"), title: Translation.tr("Master"), icon: "auto_awesome_mosaic", when: "hyprland", cards: [
+            page: Translation.tr("Hyprland"), title: Translation.tr("Master"), icon: "auto_awesome_mosaic", when: "layoutmaster", cards: [
                 { type: "select", key: "hyprland:opt:master:new_status", title: Translation.tr("New windows become"), icon: "add_box" },
                 { type: "select", key: "hyprland:opt:master:orientation", title: Translation.tr("Master position"), icon: "screen_rotation" },
                 { type: "spin", key: "hyprland:opt:master:mfact", title: Translation.tr("Master size"), icon: "aspect_ratio" }

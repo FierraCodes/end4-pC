@@ -137,6 +137,8 @@ Item {
     function isVisibleEntry(e) {
         if (e.when === "material" && ColorSchemes.current !== "") return false;
         if (e.when === "hyprland" && WM.compositor !== "hyprland") return false;
+        if (e.when === "layoutdwindle" && (WM.compositor !== "hyprland" || Config.options.hyprland.general.layout !== "dwindle")) return false;
+        if (e.when === "layoutmaster" && (WM.compositor !== "hyprland" || Config.options.hyprland.general.layout !== "master")) return false;
         if (e.when === "hyprbordercolor" && (WM.compositor !== "hyprland" || !Config.options.hyprland.general.borderColor.enable)) return false;
         if (e.when === "dockhug" && Config.options.dock.style !== "hug") return false;
         if (e.when === "dockfloat" && Config.options.dock.style === "hug") return false;
