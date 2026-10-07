@@ -133,6 +133,7 @@ Singleton {
         property color colLayer0Base: ColorUtils.mix(m3colors.m3background, m3colors.m3primary, Config.options.appearance.extraBackgroundTint ? 0.99 : 1)
         property color colLayer0: ColorUtils.transparentize(colLayer0Base, root.backgroundTransparency)
         property color colUiBackground: Config?.options.appearance.uiBackground === "oled" ? ColorUtils.transparentize("#000000", root.backgroundTransparency) : colLayer0
+        property color colUiPopupBackground: Config?.options.appearance.uiBackground === "oled" ? "#000000" : colLayer1Base
         property color colUiSurfaceContainer: Config?.options.appearance.uiBackground === "oled" ? ColorUtils.transparentize("#000000", root.backgroundTransparency) : colBackgroundSurfaceContainer
         property color colOnLayer0: m3colors.m3onBackground
         property color colLayer0Hover: ColorUtils.transparentize(ColorUtils.mix(colLayer0, colOnLayer0, 0.9, root.contentTransparency))
