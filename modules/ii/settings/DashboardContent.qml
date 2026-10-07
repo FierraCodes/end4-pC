@@ -527,6 +527,32 @@ Item {
                         color: ui.fgContainer
                         visible: avatarImage.status !== Image.Ready
                     }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: avatarRect.radius
+                        color: Qt.rgba(0, 0, 0, 0.55)
+                        opacity: avatarArea.containsMouse ? 1 : 0
+
+                        Behavior on opacity {
+                            NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+                        }
+
+                        MaterialSymbol {
+                            anchors.centerIn: parent
+                            text: "close"
+                            iconSize: 24
+                            color: "white"
+                        }
+                    }
+
+                    MouseArea {
+                        id: avatarArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: GlobalStates.settingsOpen = false
+                    }
                 }
             }
         }
