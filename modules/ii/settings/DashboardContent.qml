@@ -37,7 +37,6 @@ Item {
         readonly property bool media: root.mediaVisible && root.pendingPage === root.mediaPage
 
         readonly property color surface: media ? blended.colLayer1 : Appearance.colors.colLayer1
-        readonly property color toolbar: media ? blended.colLayer1 : Appearance.m3colors.m3surfaceContainer
         readonly property color fgSurface: media ? blended.colOnLayer1 : Appearance.colors.colOnLayer1
         readonly property color subtext: media ? blended.colSubtext : Appearance.colors.colSubtext
         readonly property color hover: media ? blended.colSecondaryContainerHover : Appearance.colors.colLayer1Hover
@@ -333,7 +332,8 @@ Item {
             Toolbar {
                 id: navToolbar
                 anchors.centerIn: parent
-                colBackground: ui.toolbar
+                colBackground: ui.surface
+                outerShadow: true
 
                 Repeater {
                     model: root.pageNames
