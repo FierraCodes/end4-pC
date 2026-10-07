@@ -33,6 +33,7 @@ Singleton {
 
     property real cpuTemp: 0
 
+    property int consumers: 0
     property real diskTotal: 1
     property real diskUsed: 0
     property real diskFree: 0
@@ -130,7 +131,7 @@ Singleton {
 
     Timer {
         interval: Config.options?.resources?.updateInterval ?? 3000
-        running: true
+        running: root.consumers > 0
         repeat: true
         triggeredOnStart: true
         onTriggered: {
