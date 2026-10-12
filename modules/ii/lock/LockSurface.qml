@@ -367,7 +367,11 @@ MouseArea {
                             anchors.centerIn: parent
                             width: artRect.width
                             height: artRect.height
-                            source: root.artUrl
+                            source: {
+                                if (!root.artUrl || root.artUrl.length === 0) return ""
+                                if (root.artUrl.startsWith("/")) return "file://" + root.artUrl
+                                return root.artUrl
+                            }
                             fillMode: Image.PreserveAspectCrop
                             cache: false
                             antialiasing: true
