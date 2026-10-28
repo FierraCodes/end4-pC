@@ -46,6 +46,10 @@ AbstractQuickPanel {
 
     property alias dropIndicator: dropIndicator
 
+    function rowKeys(rows) {
+        return rows.map(row => row.map(toggle => `${toggle.type}:${toggle.size}`).join("|"));
+    }
+
     function toggleRowsForList(togglesList) {
         var rows = [];
         var row = [];
@@ -79,12 +83,12 @@ AbstractQuickPanel {
             Repeater {
                 id: usedRowsRepeater
                 model: ScriptModel {
-                    values: Array(root.toggleRows.length)
+                    values: root.rowKeys(root.toggleRows)
                 }
                 delegate: ButtonGroup {
                     id: toggleRow
                     required property int index
-                    property var modelData: root.toggleRows[index]
+                    property var rowData: root.toggleRows[index]
                     property int startingIndex: {
                         const rows = root.toggleRows;
                         let sum = 0;
@@ -95,7 +99,7 @@ AbstractQuickPanel {
 
                     Repeater {
                         model: ScriptModel {
-                            values: toggleRow?.modelData ?? []
+                            values: toggleRow?.rowData ?? []
                             objectProp: "type"
                         }
                         delegate: AndroidToggleDelegateChooser {
@@ -168,17 +172,17 @@ AbstractQuickPanel {
 
                 Repeater {
                     model: ScriptModel {
-                        values: Array(root.unusedToggleRows.length)
+                        values: root.rowKeys(root.unusedToggleRows)
                     }
                     delegate: ButtonGroup {
                         id: unusedToggleRow
                         required property int index
-                        property var modelData: root.unusedToggleRows[index]
+                        property var rowData: root.unusedToggleRows[index]
                         spacing: root.spacing
 
                         Repeater {
                             model: ScriptModel {
-                                values: unusedToggleRow?.modelData ?? []
+                                values: unusedToggleRow?.rowData ?? []
                                 objectProp: "type"
                             }
                             delegate: AndroidToggleDelegateChooser {
