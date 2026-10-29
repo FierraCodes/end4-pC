@@ -287,6 +287,7 @@ Singleton {
                     property real blurRadius: 32
                     property JsonObject glass: JsonObject {
                         property bool enable: false
+                        property string tint: "transparent"
                     }
                     property bool shadow: true
                     property list<string> menuHidden: []

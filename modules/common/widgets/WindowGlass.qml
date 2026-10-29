@@ -16,7 +16,7 @@ Item {
     property color tint: "transparent"
     property bool glassEnabled: true
     property bool fullscreenSurface: false
-    property real tintStrength: 0.3
+    property real tintStrength: 0
     property real flareLeft: 0
     property real flareRight: 0
     property real hangLeft: 0
