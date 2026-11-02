@@ -261,7 +261,7 @@ AbstractQuickPanel {
             implicitWidth: activeGrid.implicitWidth + 16
             implicitHeight: activeGrid.implicitHeight + 16
             radius: Appearance.rounding.normal
-            color: Appearance.colors.colLayer1
+            color: Config.options.background.widgets.glass.enable ? "transparent" : Appearance.colors.colLayer1
 
             Grid {
                 id: activeGrid
@@ -341,7 +341,7 @@ AbstractQuickPanel {
                     implicitWidth: unusedGrid.implicitWidth + 16
                     implicitHeight: unusedGrid.implicitHeight + 16
                     radius: Appearance.rounding.normal
-                    color: Appearance.colors.colLayer1
+                    color: Config.options.background.widgets.glass.enable ? "transparent" : Appearance.colors.colLayer1
 
                     Grid {
                         id: unusedGrid
