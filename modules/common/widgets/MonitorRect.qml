@@ -106,25 +106,25 @@ Rectangle {
     }
 
     function snapPosition(px, py) {
-        let sx = Math.max(0, px), sy = Math.max(0, py)
+        let sx = px, sy = py
         const thresh = snapThreshold / scaleFactor
+        let bestX = thresh, bestY = thresh // nearest edge wins, not the last monitor in the list
         for (let i = 0; i < allMonitors.length; i++) {
             if (i === monitorIndex) continue
             const other = allMonitors[i]
             if (other.disabled) continue
             const ow = monitorConfig.logicalWidth(other)
             const oh = monitorConfig.logicalHeight(other)
-            if (Math.abs(px - other.x) < thresh)                 sx = Math.max(0, other.x)
-            if (Math.abs(px - (other.x + ow)) < thresh)          sx = Math.max(0, other.x + ow)
-            if (Math.abs((px + logW) - other.x) < thresh)        sx = Math.max(0, other.x - logW)
-            if (Math.abs((px + logW) - (other.x + ow)) < thresh) sx = Math.max(0, other.x + ow - logW)
-            if (Math.abs(py - other.y) < thresh)                 sy = Math.max(0, other.y)
-            if (Math.abs(py - (other.y + oh)) < thresh)          sy = Math.max(0, other.y + oh)
-            if (Math.abs((py + logH) - other.y) < thresh)        sy = Math.max(0, other.y - logH)
-            if (Math.abs((py + logH) - (other.y + oh)) < thresh) sy = Math.max(0, other.y + oh - logH)
+            const xs = [other.x, other.x + ow, other.x - logW, other.x + ow - logW]
+            const ys = [other.y, other.y + oh, other.y - logH, other.y + oh - logH]
+            for (const c of xs) if (Math.abs(px - c) < bestX) { bestX = Math.abs(px - c); sx = c }
+            for (const c of ys) if (Math.abs(py - c) < bestY) { bestY = Math.abs(py - c); sy = c }
         }
         return Qt.point(sx, sy)
     }
+
+    // MouseArea moves this instead of root so root.x can show the snapped position
+    Item { id: dragProxy; parent: root.parent; width: 1; height: 1 }
 
     MouseArea {
         id: hoverArea
@@ -133,7 +133,7 @@ Rectangle {
         enabled: true
         cursorShape: monitor.disabled ? Qt.PointingHandCursor
             : (root.isDragging ? Qt.ClosedHandCursor : Qt.OpenHandCursor)
-        drag.target: monitor.disabled ? null : root
+        drag.target: monitor.disabled ? null : dragProxy
         drag.axis: Drag.XAndYAxis
         drag.threshold: 4
 
@@ -143,18 +143,21 @@ Rectangle {
             root.dragY = (monitor.y ?? 0) * root.scaleFactor + root.canvasOffset.y
             root.snappedX = monitor.x ?? 0
             root.snappedY = monitor.y ?? 0
+            dragProxy.x = root.dragX
+            dragProxy.y = root.dragY
             root.isDragging = true
         }
 
         onPositionChanged: {
             if (!root.isDragging || monitor.disabled) return
-            root.dragX = root.x
-            root.dragY = root.y
-            const realX = Math.round((root.x - root.canvasOffset.x) / root.scaleFactor)
-            const realY = Math.round((root.y - root.canvasOffset.y) / root.scaleFactor)
+            const realX = Math.round((dragProxy.x - root.canvasOffset.x) / root.scaleFactor)
+            const realY = Math.round((dragProxy.y - root.canvasOffset.y) / root.scaleFactor)
             const snapped = root.snapPosition(realX, realY)
-            root.snappedX = Math.max(0, snapped.x)
-            root.snappedY = Math.max(0, snapped.y)
+            root.snappedX = snapped.x
+            root.snappedY = snapped.y
+            // show the snapped position while dragging
+            root.dragX = root.snappedX * root.scaleFactor + root.canvasOffset.x
+            root.dragY = root.snappedY * root.scaleFactor + root.canvasOffset.y
             root.positionDragging(root.monitorIndex, root.snappedX, root.snappedY)
         }
 

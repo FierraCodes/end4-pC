@@ -23,14 +23,19 @@ Item {
             const m = mons[i]
             const w = monitorConfig.logicalWidth(m) || 1920
             const h = monitorConfig.logicalHeight(m) || 1080
-            const px = previewPositions[m.name]?.x ?? m.x ?? 0
-            const py = previewPositions[m.name]?.y ?? m.y ?? 0
+            // committed positions only: using the drag preview here rescales the canvas under the cursor
+            const px = m.x ?? 0
+            const py = m.y ?? 0
             minX = Math.min(minX, px)
             minY = Math.min(minY, py)
             maxX = Math.max(maxX, px + w)
             maxY = Math.max(maxY, py + h)
         }
         if (minX === Infinity) return { minX: 0, minY: 0, width: 1920, height: 1080 }
+        // fixed empty margin so a monitor can be dropped beyond the others (bounds can't follow the drag)
+        const padX = Math.max(...mons.map(m => monitorConfig.logicalWidth(m) || 1920))
+        const padY = Math.max(...mons.map(m => monitorConfig.logicalHeight(m) || 1080)) / 2
+        minX -= padX; maxX += padX; minY -= padY; maxY += padY
         return { minX, minY, width: Math.max(100, maxX - minX), height: Math.max(100, maxY - minY) }
     }
 
@@ -51,9 +56,11 @@ Item {
         if (a.disabled) return false
         const aw = monitorConfig.logicalWidth(a)
         const ah = monitorConfig.logicalHeight(a)
+        let touching = false, hasOther = false
         for (let i = 0; i < monitors.length; i++) {
             if (i === idx) continue
             if (monitors[i].disabled) continue
+            hasOther = true
             const b = monitors[i]
             const bw = monitorConfig.logicalWidth(b)
             const bh = monitorConfig.logicalHeight(b)
@@ -61,26 +68,33 @@ Item {
                 a.y < b.y + bh && a.y + ah > b.y) {
                 return true
             }
+            // shares an edge with positive length along the other axis
+            const yShare = a.y < b.y + bh && a.y + ah > b.y
+            const xShare = a.x < b.x + bw && a.x + aw > b.x
+            if ((yShare && (a.x + aw === b.x || b.x + bw === a.x)) ||
+                (xShare && (a.y + ah === b.y || b.y + bh === a.y)))
+                touching = true
         }
-        return false
+        // a floating monitor counts as invalid, same as an overlap
+        return hasOther && !touching
     }
 
     function computeNormalized(monitors, changedIdx, newX, newY) {
         let m = monitors.slice().map(mon => Object.assign({}, mon))
-        m[changedIdx].x = Math.max(0, newX)
-        m[changedIdx].y = Math.max(0, newY)
+        m[changedIdx].x = newX
+        m[changedIdx].y = newY
         let minX = Infinity, minY = Infinity
         for (let i = 0; i < m.length; i++) {
             if (m[i].disabled) continue
             minX = Math.min(minX, m[i].x)
             minY = Math.min(minY, m[i].y)
         }
-        if (minX !== Infinity && minX > 0) {
+        if (minX !== Infinity && minX !== 0) {
             for (let i = 0; i < m.length; i++) {
                 if (!m[i].disabled) m[i].x -= minX
             }
         }
-        if (minY !== Infinity && minY > 0) {
+        if (minY !== Infinity && minY !== 0) {
             for (let i = 0; i < m.length; i++) {
                 if (!m[i].disabled) m[i].y -= minY
             }
@@ -89,23 +103,23 @@ Item {
     }
 
     function updatePreview(idx, newX, newY) {
-        const normalized = computeNormalized(monitorConfig.monitors, idx, newX, newY)
-        root.dragHasOverlap = checkOverlap(normalized, idx)
-        let preview = {}
-        for (let i = 0; i < normalized.length; i++) {
-            preview[normalized[i].name] = { x: normalized[i].x, y: normalized[i].y }
-        }
-        root.previewPositions = preview
+        // raw (un-normalized) positions: other monitors stay put while dragging; normalizing happens on commit
+        let m = monitorConfig.monitors.map(mon => Object.assign({}, mon))
+        m[idx].x = newX
+        m[idx].y = newY
+        root.dragHasOverlap = checkOverlap(m, idx)
     }
 
     function commitPosition(idx, newX, newY) {
         const normalized = computeNormalized(monitorConfig.monitors, idx, newX, newY)
-        monitorConfig.monitors = normalized
         root.previewPositions = {}
         for (let i = 0; i < normalized.length; i++) {
-            monitorConfig.applyMonitor(normalized[i])
+            const old = monitorConfig.monitors[i]
+            if (normalized[i].x === old.x && normalized[i].y === old.y) continue
+            // updateMonitor records the change in _pendingChanges, which save() requires
+            monitorConfig.updateMonitor(i, { x: normalized[i].x, y: normalized[i].y })
+            monitorConfig.applyAndSave(i)
         }
-        monitorConfig.save()
     }
 
     Rectangle {
